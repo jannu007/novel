@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { useInstallPrompt } from '../lib/useInstallPrompt';
 
 interface Props {
   novelId?: string;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function TopBar({ novelId, novelTitle, right, activeTab }: Props) {
+  const { canInstall, promptInstall } = useInstallPrompt();
   return (
     <div className="topbar">
       <Link to="/" className="brand">
@@ -52,6 +54,11 @@ export default function TopBar({ novelId, novelTitle, right, activeTab }: Props)
       <Link to="/guide" style={{ fontSize: 13, color: 'var(--text-soft)' }}>
         KDP出版ガイド
       </Link>
+      {canInstall && (
+        <button className="btn btn-sm btn-primary" onClick={promptInstall}>
+          📲 インストール
+        </button>
+      )}
       {right}
     </div>
   );

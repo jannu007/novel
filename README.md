@@ -1,8 +1,23 @@
 # 小説執筆スタジオ
 
-完全無料・ブラウザだけで動く小説執筆アプリです。インストール不要、サーバー不要、課金なしで、Amazon
+完全無料・ブラウザだけで動く小説執筆アプリです。ビルド済みアプリはブラウザから
+**そのままインストール**して使えます（APKもストア登録も不要）。サーバー不要、課金なしで、Amazon
 KDP（Kindleダイレクト・パブリッシング）で販売できる原稿（EPUB / DOCX /
 印刷用PDF）を作成できます。
+
+## インストールして使う（PWA）
+
+このアプリは[インストール可能なPWA](https://web.dev/progressive-web-apps/)です。
+GitHub Pagesで公開したURLをブラウザで開くと、以下のようにインストールできます。
+
+- **デスクトップ（Chrome / Edge）**：アドレスバーのインストールアイコン、または画面右上の
+  「📲 インストール」ボタンをクリック。
+- **Android（Chrome）**：メニュー（⋮）→「アプリをインストール」、または画面右上の
+  「📲 インストール」ボタンをタップ。
+- **iOS（Safari）**：共有ボタン →「ホーム画面に追加」。
+
+インストール後は独立したウィンドウ（アイコン付き）で起動し、一度読み込んでおけば
+オフラインでも執筆を続けられます（`public/sw.js` によるオフラインキャッシュ）。
 
 ## 主な機能
 
@@ -36,13 +51,22 @@ npm run preview  # ビルド結果をローカルで確認
 
 ビルド成果物は静的ファイルのみなので、GitHub Pages・Cloudflare Pages・Netlify
 などの無料静的ホスティングにそのままデプロイできます（ルーティングは `HashRouter`
-を使用しているため、サーバー側のリライト設定は不要です）。
+を、アセット参照は相対パス（`base: './'`）を使用しているため、リポジトリ名のサブパス
+配下にデプロイしてもサーバー側のリライト設定は不要です）。
+
+### GitHub Pagesへのデプロイ
+
+`.github/workflows/deploy-pages.yml` が `main` ブランチへのプッシュのたびに自動ビルド・
+自動デプロイします。初回のみ、リポジトリの **Settings → Pages → Build and
+deployment → Source** を `GitHub Actions` に設定してください。公開後のURLは
+`https://<ユーザー名>.github.io/<リポジトリ名>/` になります。
 
 ## 技術スタック
 
-- React 19 + TypeScript + Vite
+- React 19 + TypeScript + Vite（`base: './'` で相対パス配信、サブパス配置に対応）
 - react-router-dom（HashRouter）
 - idb-keyval（IndexedDBラッパー、ローカル永続化）
 - jszip / docx / file-saver（EPUB・DOCX書き出し）
+- Service Worker（`public/sw.js`）+ Web App Manifest によるインストール可能PWA
 
 外部APIやサーバーには依存しておらず、完全にクライアントサイドのみで完結します。

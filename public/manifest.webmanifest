@@ -1,0 +1,17 @@
+{
+  "name": "小説執筆スタジオ",
+  "short_name": "執筆スタジオ",
+  "description": "完全無料・ブラウザだけで小説を執筆し、Amazon KDPで販売できる形式（EPUB/DOCX/PDF）に書き出せるアプリ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#faf8f4",
+  "theme_color": "#7a4de8",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
