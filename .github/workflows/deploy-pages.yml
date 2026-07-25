@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main
+      - claude/amazon-novel-writing-app-lpnvvt
   workflow_dispatch:
 
 permissions:
