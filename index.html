@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code App Manager</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>🗂️ Claude Code App Manager</h1>
+  <div class="topbar-actions">
+    <button id="btn-sync" class="btn btn-primary">GitHubと同期</button>
+    <button id="btn-add" class="btn">＋ 手動で追加</button>
+    <button id="btn-settings" class="btn btn-ghost">設定</button>
+  </div>
+</header>
+
+<main>
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="名前・説明・タグで検索…" />
+    <div class="tabs" id="status-tabs">
+      <button class="tab active" data-status="all">すべて</button>
+      <button class="tab" data-status="unclassified">未分類</button>
+      <button class="tab" data-status="in_progress">開発中</button>
+      <button class="tab" data-status="completed">完成</button>
+      <button class="tab" data-status="paused">一時停止</button>
+      <button class="tab" data-status="archived">アーカイブ</button>
+    </div>
+    <select id="sort">
+      <option value="updated_desc">更新日が新しい順</option>
+      <option value="updated_asc">更新日が古い順</option>
+      <option value="name_asc">名前順</option>
+    </select>
+  </div>
+
+  <p id="empty-state" class="empty-state hidden">
+    まだ登録されたアプリがありません。<br>
+    「設定」からGitHubアカウントを連携して同期するか、「＋ 手動で追加」から登録してください。
+  </p>
+
+  <div id="app-grid" class="app-grid"></div>
+</main>
+
+<!-- Edit / Add modal -->
+<dialog id="edit-modal">
+  <form id="edit-form" method="dialog">
+    <h2 id="edit-modal-title">アプリを追加</h2>
+    <input type="hidden" id="f-id">
+    <input type="hidden" id="f-source">
+    <input type="hidden" id="f-repo-full-name">
+
+    <label>名前
+      <input id="f-name" type="text" required>
+    </label>
+
+    <label>説明
+      <textarea id="f-description" rows="2"></textarea>
+    </label>
+
+    <label>ステータス
+      <select id="f-status">
+        <option value="unclassified">未分類</option>
+        <option value="in_progress">開発中</option>
+        <option value="completed">完成</option>
+        <option value="paused">一時停止</option>
+        <option value="archived">アーカイブ</option>
+      </select>
+    </label>
+
+    <label>URL（リポジトリ / 公開先など）
+      <input id="f-url" type="url" placeholder="https://...">
+    </label>
+
+    <label>タグ（カンマ区切り）
+      <input id="f-tags" type="text" placeholder="claude-code, web, cli">
+    </label>
+
+    <label>メモ
+      <textarea id="f-notes" rows="3" placeholder="次にやること、気づいたことなど"></textarea>
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" id="btn-delete" class="btn btn-danger hidden">削除</button>
+      <span class="spacer"></span>
+      <button type="button" id="btn-cancel" class="btn btn-ghost">キャンセル</button>
+      <button type="submit" id="btn-save" class="btn btn-primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Settings modal -->
+<dialog id="settings-modal">
+  <form id="settings-form" method="dialog">
+    <h2>GitHub連携設定</h2>
+    <p class="hint">
+      GitHubアカウントのリポジトリを自動取得できます。トークンはこのブラウザの localStorage にのみ保存され、
+      GitHub API への直接通信にのみ使用されます（サーバーには送信されません）。
+      Private リポジトリも同期したい場合は <code>repo</code> 権限（できれば読み取り専用の fine-grained PAT）のトークンを入力してください。
+    </p>
+
+    <label>GitHubユーザー名
+      <input id="s-username" type="text" placeholder="octocat">
+    </label>
+
+    <label>Personal Access Token（任意・Private repoの取得に必要）
+      <input id="s-token" type="password" placeholder="ghp_...">
+    </label>
+
+    <label class="checkbox-row">
+      <input id="s-only-topic" type="checkbox">
+      特定のトピック(タグ)が付いたリポジトリのみ同期する
+    </label>
+    <label>
+      トピック名
+      <input id="s-topic-name" type="text" placeholder="claude-code" value="claude-code">
+    </label>
+
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button type="button" id="btn-export" class="btn btn-ghost">エクスポート</button>
+      <button type="button" id="btn-import" class="btn btn-ghost">インポート</button>
+      <input type="file" id="import-file" accept="application/json" class="hidden">
+      <button type="button" id="btn-settings-cancel" class="btn btn-ghost">閉じる</button>
+      <button type="submit" class="btn btn-primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
