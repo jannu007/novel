@@ -2,6 +2,8 @@ import { useParams, Link } from 'react-router-dom';
 import { useNovel } from '../lib/useNovel';
 import { contentToParagraphs } from '../lib/htmlContent';
 import { TRIM_SIZES } from '../lib/trimSizes';
+import CoverCanvas from '../components/CoverCanvas';
+import IllustrationCanvas from '../components/IllustrationCanvas';
 
 export default function PrintPreview() {
   const { id } = useParams();
@@ -20,6 +22,7 @@ export default function PrintPreview() {
   const trim = TRIM_SIZES[novel.trimSize];
   const chapters = [...novel.chapters].sort((a, b) => a.order - b.order);
   const isFixed = trim.widthIn > 0;
+  const showIllustrations = novel.illustrationsEnabled;
 
   return (
     <div className="print-preview">
@@ -41,11 +44,17 @@ export default function PrintPreview() {
           font-size: 13pt;
           ${isFixed ? `width: ${trim.widthIn}in; min-height: ${trim.heightIn}in;` : 'max-width: 760px;'}
         }
+        .print-page.cover-page { padding: 0; overflow: hidden; }
         .print-page p { margin: 0; text-indent: 1em; }
         .print-page p.scene-break { text-align: center; text-indent: 0; margin: 1.5em 0; }
         .print-page h1.book-title { text-align: center; margin-top: 30%; font-size: 22pt; }
         .print-page p.author { text-align: center; margin-top: 2em; }
-        .print-page h1.chapter-title { text-align: center; margin: 2em 0 2.5em; font-size: 16pt; break-before: page; }
+        .print-page h1.toc-title { text-align: center; margin: 0 0 1.5em; font-size: 18pt; }
+        .print-page ol.toc-list { list-style: none; padding: 0; margin: 0; font-size: 13pt; }
+        .print-page ol.toc-list li { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 0.9em; text-indent: 0; }
+        .print-page .illust-banner { margin: -0.1in -0.05in 1.5em; border-radius: 4px; overflow: hidden; }
+        .print-page h1.chapter-title { text-align: center; margin: 1.2em 0 2em; font-size: 16pt; break-before: page; }
+        .print-page .illust-banner + h1.chapter-title { break-before: avoid; margin-top: 0; }
         @media print {
           .print-toolbar { display: none; }
           .print-page { box-shadow: none; margin: 0; }
@@ -63,27 +72,60 @@ export default function PrintPreview() {
         </button>
       </div>
 
+      {showIllustrations ? (
+        <div className="print-page cover-page">
+          <div style={{ width: '100%', aspectRatio: '5 / 8' }}>
+            <CoverCanvas novel={novel} width={1000} height={1600} />
+          </div>
+        </div>
+      ) : (
+        <div className="print-page">
+          <h1 className="book-title">{novel.title || '無題の小説'}</h1>
+          {(novel.author || novel.penName) && (
+            <p className="author">{novel.author || novel.penName}</p>
+          )}
+        </div>
+      )}
+
       <div className="print-page">
-        <h1 className="book-title">{novel.title || '無題の小説'}</h1>
-        {(novel.author || novel.penName) && (
-          <p className="author">{novel.author || novel.penName}</p>
-        )}
+        <h1 className="toc-title">目次</h1>
+        <ol className="toc-list">
+          {chapters.map((ch, i) => (
+            <li key={ch.id}>
+              <span>{ch.title || `第${i + 1}章`}</span>
+            </li>
+          ))}
+        </ol>
       </div>
 
-      {chapters.map((ch, i) => (
-        <div className="print-page" key={ch.id}>
-          <h1 className="chapter-title">{ch.title || `第${i + 1}章`}</h1>
-          {contentToParagraphs(ch.content).map((html, j) => (
-            <p
-              key={j}
-              className={html.includes('scene-break') ? 'scene-break' : undefined}
-              dangerouslySetInnerHTML={{
-                __html: html.replace(/^<p[^>]*>/, '').replace(/<\/p>$/, ''),
-              }}
-            />
-          ))}
-        </div>
-      ))}
+      {chapters.map((ch, i) => {
+        const chapterTitle = ch.title || `第${i + 1}章`;
+        return (
+          <div className="print-page" key={ch.id}>
+            {showIllustrations && (
+              <div className="illust-banner" style={{ width: '100%', aspectRatio: '12 / 5' }}>
+                <IllustrationCanvas
+                  novel={novel}
+                  chapterTitle={chapterTitle}
+                  index={i}
+                  width={1200}
+                  height={500}
+                />
+              </div>
+            )}
+            <h1 className="chapter-title">{chapterTitle}</h1>
+            {contentToParagraphs(ch.content).map((html, j) => (
+              <p
+                key={j}
+                className={html.includes('scene-break') ? 'scene-break' : undefined}
+                dangerouslySetInnerHTML={{
+                  __html: html.replace(/^<p[^>]*>/, '').replace(/<\/p>$/, ''),
+                }}
+              />
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

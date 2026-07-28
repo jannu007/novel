@@ -52,8 +52,8 @@ export interface Novel {
   penName: string;
   synopsis: string;
   genre: string;
-  coverColor: string;
   trimSize: TrimSize;
+  illustrationsEnabled: boolean;
   chapters: Chapter[];
   characters: Character[];
   plotPoints: PlotPoint[];
@@ -73,8 +73,8 @@ export function createEmptyNovel(id: string, title: string): Novel {
     penName: '',
     synopsis: '',
     genre: '',
-    coverColor: '#3b3268',
     trimSize: 'kindle',
+    illustrationsEnabled: true,
     chapters: [
       {
         id: crypto.randomUUID(),

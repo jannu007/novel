@@ -308,14 +308,8 @@ select.input {
 }
 .novel-card .cover {
   height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.92);
-  font-weight: 700;
-  font-size: 15px;
-  padding: 10px;
-  text-align: center;
+  overflow: hidden;
+  cursor: pointer;
 }
 .novel-card .body {
   padding: 12px 14px;

@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import type { Novel } from '../types';
 import { escapeHtml, contentToParagraphs } from './htmlContent';
+import { generateCoverImage, generateChapterIllustration } from './coverGenerator';
 
 const STYLE_CSS = `
 @charset "UTF-8";
@@ -14,8 +15,7 @@ body {
 h1.chapter-title {
   font-size: 1.3em;
   text-align: center;
-  margin: 2.5em 0 2em;
-  page-break-before: always;
+  margin: 2em 0 2em;
 }
 h1.book-title {
   font-size: 1.8em;
@@ -38,7 +38,20 @@ p.scene-break {
 p.no-indent {
   text-indent: 0;
 }
+img.illust {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 0 1.5em;
+}
+img.cover-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+body.cover-body { margin: 0; padding: 0; }
 nav#toc ol { list-style: none; padding-left: 1em; }
+nav#toc li { margin-bottom: 0.8em; }
 `;
 
 function chapterFileName(i: number) {
@@ -51,6 +64,7 @@ export async function generateEpub(novel: Novel): Promise<void> {
   const chapters = [...novel.chapters].sort((a, b) => a.order - b.order);
   const title = escapeHtml(novel.title || '無題の小説');
   const author = escapeHtml(novel.author || novel.penName || '著者未設定');
+  const withImages = novel.illustrationsEnabled;
 
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
 
@@ -66,6 +80,39 @@ export async function generateEpub(novel: Novel): Promise<void> {
 
   zip.file('OEBPS/style.css', STYLE_CSS);
 
+  const manifestItems: string[] = [
+    '<item id="title" href="text/title.xhtml" media-type="application/xhtml+xml"/>',
+    '<item id="style" href="style.css" media-type="text/css"/>',
+    '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
+    '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
+  ];
+  const spineItems: string[] = [];
+  const navPoints: string[] = [];
+  const navLis: string[] = [];
+  let playOrder = 1;
+  let coverMeta = '';
+
+  if (withImages) {
+    const cover = await generateCoverImage(novel, 1000, 1600);
+    zip.file('OEBPS/images/cover.png', cover.bytes);
+    manifestItems.push(
+      '<item id="cover-image" href="images/cover.png" media-type="image/png" properties="cover-image"/>',
+      '<item id="cover-page" href="text/cover.xhtml" media-type="application/xhtml+xml"/>'
+    );
+    zip.file(
+      'OEBPS/text/cover.xhtml',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
+<head><title>${title}</title><link rel="stylesheet" type="text/css" href="../style.css"/></head>
+<body class="cover-body">
+  <img class="cover-image" src="../images/cover.png" alt="${title}"/>
+</body>
+</html>`
+    );
+    spineItems.push('<itemref idref="cover-page"/>');
+    coverMeta = '\n    <meta name="cover" content="cover-image"/>';
+  }
+
   zip.file(
     'OEBPS/text/title.xhtml',
     `<?xml version="1.0" encoding="UTF-8"?>
@@ -77,29 +124,34 @@ export async function generateEpub(novel: Novel): Promise<void> {
 </body>
 </html>`
   );
+  spineItems.push('<itemref idref="title"/>');
+  spineItems.push('<itemref idref="nav"/>');
 
-  const manifestItems: string[] = [
-    '<item id="title" href="text/title.xhtml" media-type="application/xhtml+xml"/>',
-    '<item id="style" href="style.css" media-type="text/css"/>',
-    '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
-    '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
-  ];
-  const spineItems: string[] = ['<itemref idref="title"/>'];
-  const navPoints: string[] = [];
-  const navLis: string[] = [];
-
-  chapters.forEach((ch, i) => {
+  for (let i = 0; i < chapters.length; i++) {
+    const ch = chapters[i];
     const fname = chapterFileName(i);
     const id = `chap${i + 1}`;
+    const chTitle = escapeHtml(ch.title || `第${i + 1}章`);
     manifestItems.push(
       `<item id="${id}" href="text/${fname}" media-type="application/xhtml+xml"/>`
     );
     spineItems.push(`<itemref idref="${id}"/>`);
-    const chTitle = escapeHtml(ch.title || `第${i + 1}章`);
     navPoints.push(
-      `<navPoint id="np${i + 1}" playOrder="${i + 1}"><navLabel><text>${chTitle}</text></navLabel><content src="text/${fname}"/></navPoint>`
+      `<navPoint id="np${playOrder}" playOrder="${playOrder}"><navLabel><text>${chTitle}</text></navLabel><content src="text/${fname}"/></navPoint>`
     );
+    playOrder++;
     navLis.push(`<li><a href="text/${fname}">${chTitle}</a></li>`);
+
+    let illustHtml = '';
+    if (withImages) {
+      const illust = await generateChapterIllustration(novel, ch.title || `第${i + 1}章`, i, 1200, 500);
+      const imgName = `illust-${String(i + 1).padStart(3, '0')}.png`;
+      zip.file(`OEBPS/images/${imgName}`, illust.bytes);
+      manifestItems.push(
+        `<item id="img${i + 1}" href="images/${imgName}" media-type="image/png"/>`
+      );
+      illustHtml = `<img class="illust" src="../images/${imgName}" alt=""/>`;
+    }
 
     const bodyParas = contentToParagraphs(ch.content).join('\n');
     zip.file(
@@ -108,12 +160,13 @@ export async function generateEpub(novel: Novel): Promise<void> {
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
 <head><title>${chTitle}</title><link rel="stylesheet" type="text/css" href="../style.css"/></head>
 <body>
+  ${illustHtml}
   <h1 class="chapter-title">${chTitle}</h1>
   ${bodyParas || '<p class="no-indent"></p>'}
 </body>
 </html>`
     );
-  });
+  }
 
   zip.file(
     'OEBPS/content.opf',
@@ -124,7 +177,7 @@ export async function generateEpub(novel: Novel): Promise<void> {
     <dc:title>${title}</dc:title>
     <dc:creator>${author}</dc:creator>
     <dc:language>ja</dc:language>
-    <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
+    <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>${coverMeta}
   </metadata>
   <manifest>
     ${manifestItems.join('\n    ')}

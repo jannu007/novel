@@ -1,20 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
+import CoverCanvas from '../components/CoverCanvas';
 import { listNovels, saveNovel, deleteNovel } from '../db';
 import type { Novel } from '../types';
 import { createEmptyNovel } from '../types';
 import { countNovelChars } from '../lib/textStats';
-
-const COVER_COLORS = [
-  '#7a4de8',
-  '#3b3268',
-  '#c0563f',
-  '#2f9e64',
-  '#b8873a',
-  '#455a89',
-  '#8a3b5e',
-];
 
 export default function Dashboard() {
   const [novels, setNovels] = useState<Novel[] | null>(null);
@@ -35,8 +26,6 @@ export default function Dashboard() {
     const title = newTitle.trim() || '無題の小説';
     const id = crypto.randomUUID();
     const novel = createEmptyNovel(id, title);
-    novel.coverColor =
-      COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)];
     await saveNovel(novel);
     navigate(`/novel/${id}`);
   }
@@ -167,11 +156,10 @@ export default function Dashboard() {
                 <div className="novel-card" key={n.id}>
                   <div
                     className="cover"
-                    style={{ background: n.coverColor }}
                     onClick={() => navigate(`/novel/${n.id}`)}
                     role="button"
                   >
-                    {n.title}
+                    <CoverCanvas novel={n} width={220} height={120} />
                   </div>
                   <div
                     className="body"

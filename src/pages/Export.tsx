@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { saveAs } from 'file-saver';
 import TopBar from '../components/TopBar';
+import CoverCanvas from '../components/CoverCanvas';
 import { useNovel } from '../lib/useNovel';
 import { countNovelChars, estimatePages } from '../lib/textStats';
 import { generateTxt, generateBackupJson } from '../lib/txt';
+import { generateCoverImage } from '../lib/coverGenerator';
 import type { Novel, TrimSize } from '../types';
 import { TRIM_SIZES } from '../lib/trimSizes';
 
@@ -20,7 +23,8 @@ async function handleDocx(novel: Novel) {
 export default function Export() {
   const { id } = useParams();
   const { novel, update, saveStatus } = useNovel(id);
-  const [busy, setBusy] = useState<'epub' | 'docx' | null>(null);
+  const [busy, setBusy] = useState<'epub' | 'docx' | 'cover' | null>(null);
+  const [coverVariation, setCoverVariation] = useState(0);
 
   if (novel === undefined) return <div className="page">読み込み中…</div>;
   if (novel === null) {
@@ -118,6 +122,86 @@ export default function Export() {
                     ))}
                   </select>
                   <div className="hint">{TRIM_SIZES[novel.trimSize].note}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="section">
+            <h2>表紙・挿し絵（自動生成）</h2>
+            <div className="card">
+              <p style={{ color: 'var(--text-soft)', fontSize: 13 }}>
+                タイトル・ジャンルから、外部AIを使わず端末内だけでCanvasにより表紙デザインを自動生成します。
+                実写やイラストではなく、色とアイコンによる抽象的なデザイン表紙です。「挿し絵」は各章の冒頭に入る
+                同系統の装飾バナー画像で、EPUB・DOCX・印刷用PDFに自動的に挿入されます。
+              </p>
+              <div className="row wrap" style={{ alignItems: 'flex-start', gap: 20 }}>
+                <div
+                  style={{
+                    width: 160,
+                    height: 256,
+                    flexShrink: 0,
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    boxShadow: 'var(--shadow)',
+                  }}
+                >
+                  <CoverCanvas
+                    novel={novel}
+                    width={1000}
+                    height={1600}
+                    variation={coverVariation}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div className="row wrap" style={{ marginBottom: 12 }}>
+                    <button
+                      className="btn"
+                      onClick={() => setCoverVariation((v) => v + 1)}
+                    >
+                      🔄 別のデザインを試す
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      disabled={busy === 'cover'}
+                      onClick={async () => {
+                        setBusy('cover');
+                        try {
+                          const { bytes } = await generateCoverImage(
+                            novel,
+                            1000,
+                            1600,
+                            coverVariation
+                          );
+                          saveAs(
+                            new Blob([bytes as BlobPart], { type: 'image/png' }),
+                            `${novel.title || 'novel'}-cover.png`
+                          );
+                        } finally {
+                          setBusy(null);
+                        }
+                      }}
+                    >
+                      {busy === 'cover' ? '生成中…' : '表紙をPNGでダウンロード'}
+                    </button>
+                  </div>
+                  <label className="row" style={{ fontSize: 14, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={novel.illustrationsEnabled}
+                      onChange={(e) =>
+                        update((n) => ({
+                          ...n,
+                          illustrationsEnabled: e.target.checked,
+                        }))
+                      }
+                    />
+                    EPUB・DOCX・印刷用PDFに表紙と章ごとの挿し絵を自動で入れる
+                  </label>
+                  <div className="hint">
+                    表紙のデザインはタイトル・ジャンルから自動で決まります（同じ内容なら毎回同じデザインになります）。
+                    「別のデザインを試す」でこの画面上のプレビューを変更できます。
+                  </div>
                 </div>
               </div>
             </div>
