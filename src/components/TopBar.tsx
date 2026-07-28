@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { useInstallPrompt } from '../lib/useInstallPrompt';
 
 interface Props {
@@ -8,6 +9,13 @@ interface Props {
   right?: ReactNode;
   activeTab?: 'write' | 'characters' | 'plot' | 'export';
 }
+
+const TABS: { key: NonNullable<Props['activeTab']>; label: string; path: (id: string) => string }[] = [
+  { key: 'write', label: '執筆', path: (id) => `/novel/${id}` },
+  { key: 'characters', label: 'キャラクター', path: (id) => `/novel/${id}/characters` },
+  { key: 'plot', label: 'プロット', path: (id) => `/novel/${id}/plot` },
+  { key: 'export', label: '出版準備', path: (id) => `/novel/${id}/export` },
+];
 
 export default function TopBar({ novelId, novelTitle, right, activeTab }: Props) {
   const { canInstall, promptInstall } = useInstallPrompt();
@@ -19,30 +27,23 @@ export default function TopBar({ novelId, novelTitle, right, activeTab }: Props)
       </Link>
       {novelId && (
         <nav className="nav-tabs">
-          <Link
-            to={`/novel/${novelId}`}
-            className={activeTab === 'write' ? 'active' : ''}
-          >
-            執筆
-          </Link>
-          <Link
-            to={`/novel/${novelId}/characters`}
-            className={activeTab === 'characters' ? 'active' : ''}
-          >
-            キャラクター
-          </Link>
-          <Link
-            to={`/novel/${novelId}/plot`}
-            className={activeTab === 'plot' ? 'active' : ''}
-          >
-            プロット
-          </Link>
-          <Link
-            to={`/novel/${novelId}/export`}
-            className={activeTab === 'export' ? 'active' : ''}
-          >
-            出版準備
-          </Link>
+          {TABS.map((tab) => (
+            <Link
+              key={tab.key}
+              to={tab.path(novelId)}
+              className={activeTab === tab.key ? 'active' : ''}
+              style={{ position: 'relative' }}
+            >
+              {activeTab === tab.key && (
+                <motion.span
+                  layoutId="nav-pill"
+                  className="nav-pill"
+                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                />
+              )}
+              <span style={{ position: 'relative', zIndex: 1 }}>{tab.label}</span>
+            </Link>
+          ))}
         </nav>
       )}
       {novelTitle && (
@@ -55,9 +56,14 @@ export default function TopBar({ novelId, novelTitle, right, activeTab }: Props)
         KDP出版ガイド
       </Link>
       {canInstall && (
-        <button className="btn btn-sm btn-primary" onClick={promptInstall}>
+        <motion.button
+          className="btn btn-sm btn-primary"
+          onClick={promptInstall}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.95 }}
+        >
           📲 インストール
-        </button>
+        </motion.button>
       )}
       {right}
     </div>

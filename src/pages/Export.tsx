@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { saveAs } from 'file-saver';
+import { motion, AnimatePresence } from 'framer-motion';
 import TopBar from '../components/TopBar';
 import CoverCanvas from '../components/CoverCanvas';
 import { useNovel } from '../lib/useNovel';
@@ -9,6 +10,15 @@ import { generateTxt, generateBackupJson } from '../lib/txt';
 import { generateCoverImage } from '../lib/coverGenerator';
 import type { Novel, TrimSize } from '../types';
 import { TRIM_SIZES } from '../lib/trimSizes';
+
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07 } },
+};
+const cardVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const } },
+};
 
 async function handleEpub(novel: Novel) {
   const { generateEpub } = await import('../lib/epub');
@@ -136,31 +146,41 @@ export default function Export() {
                 同系統の装飾バナー画像で、EPUB・DOCX・印刷用PDFに自動的に挿入されます。
               </p>
               <div className="row wrap" style={{ alignItems: 'flex-start', gap: 20 }}>
-                <div
-                  style={{
-                    width: 160,
-                    height: 256,
-                    flexShrink: 0,
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    boxShadow: 'var(--shadow)',
-                  }}
-                >
-                  <CoverCanvas
-                    novel={novel}
-                    width={1000}
-                    height={1600}
-                    variation={coverVariation}
-                  />
-                </div>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={coverVariation}
+                    initial={{ opacity: 0, rotateY: -12, scale: 0.96 }}
+                    animate={{ opacity: 1, rotateY: 0, scale: 1 }}
+                    exit={{ opacity: 0, rotateY: 12, scale: 0.96 }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    style={{
+                      width: 160,
+                      height: 256,
+                      flexShrink: 0,
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      boxShadow: 'var(--shadow)',
+                      perspective: 800,
+                    }}
+                  >
+                    <CoverCanvas
+                      novel={novel}
+                      width={1000}
+                      height={1600}
+                      variation={coverVariation}
+                    />
+                  </motion.div>
+                </AnimatePresence>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div className="row wrap" style={{ marginBottom: 12 }}>
-                    <button
+                    <motion.button
                       className="btn"
                       onClick={() => setCoverVariation((v) => v + 1)}
+                      whileHover={{ scale: 1.03, rotate: -2 }}
+                      whileTap={{ scale: 0.96 }}
                     >
                       🔄 別のデザインを試す
-                    </button>
+                    </motion.button>
                     <button
                       className="btn btn-primary"
                       disabled={busy === 'cover'}
@@ -234,14 +254,21 @@ export default function Export() {
             <div className="card">
               {checklist.map((item) => (
                 <div key={item.label} className="row" style={{ marginBottom: 8 }}>
-                  <span
-                    style={{
-                      color: item.ok ? 'var(--success)' : 'var(--danger)',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {item.ok ? '✓' : '！'}
-                  </span>
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={item.ok ? 'ok' : 'ng'}
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                      style={{
+                        color: item.ok ? 'var(--success)' : 'var(--danger)',
+                        fontWeight: 700,
+                        display: 'inline-block',
+                      }}
+                    >
+                      {item.ok ? '✓' : '！'}
+                    </motion.span>
+                  </AnimatePresence>
                   <span>{item.label}</span>
                 </div>
               ))}
@@ -250,8 +277,13 @@ export default function Export() {
 
           <div className="section">
             <h2>書き出し</h2>
-            <div className="export-grid">
-              <div className="card export-card">
+            <motion.div
+              className="export-grid"
+              variants={gridVariants}
+              initial="hidden"
+              animate="show"
+            >
+              <motion.div className="card export-card" variants={cardVariants}>
                 <h3>📘 EPUB（電子書籍）</h3>
                 <p>Kindle本（電子書籍）としてKDPにアップロードできる標準的な形式です。</p>
                 <button
@@ -268,8 +300,8 @@ export default function Export() {
                 >
                   {busy === 'epub' ? '生成中…' : '.epub をダウンロード'}
                 </button>
-              </div>
-              <div className="card export-card">
+              </motion.div>
+              <motion.div className="card export-card" variants={cardVariants}>
                 <h3>📄 Word（DOCX）</h3>
                 <p>KDPが電子書籍・ペーパーバック双方で受け付けるWord形式です。Kindle Createへの取り込みにも使えます。</p>
                 <button
@@ -286,29 +318,29 @@ export default function Export() {
                 >
                   {busy === 'docx' ? '生成中…' : '.docx をダウンロード'}
                 </button>
-              </div>
-              <div className="card export-card">
+              </motion.div>
+              <motion.div className="card export-card" variants={cardVariants}>
                 <h3>🖨️ 印刷用PDFプレビュー</h3>
                 <p>ペーパーバック向けに判型に合わせたレイアウトを確認し、ブラウザの印刷機能でPDF保存できます。</p>
                 <Link className="btn btn-primary btn-block" to={`/novel/${novel.id}/print`}>
                   プレビューを開く
                 </Link>
-              </div>
-              <div className="card export-card">
+              </motion.div>
+              <motion.div className="card export-card" variants={cardVariants}>
                 <h3>📝 テキスト（TXT）</h3>
                 <p>プレーンテキストで書き出します。他の編集ソフトへの移行や下書き保管に便利です。</p>
                 <button className="btn btn-block" onClick={() => generateTxt(novel)}>
                   .txt をダウンロード
                 </button>
-              </div>
-              <div className="card export-card">
+              </motion.div>
+              <motion.div className="card export-card" variants={cardVariants}>
                 <h3>💾 バックアップ（JSON）</h3>
                 <p>この作品の全データ（本文・キャラクター・プロット）を1ファイルに保存します。定期的なバックアップにご利用ください。</p>
                 <button className="btn btn-block" onClick={() => generateBackupJson(novel)}>
                   バックアップを保存
                 </button>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </div>
 
           <div className="callout">

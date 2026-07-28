@@ -1,11 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import TopBar from '../components/TopBar';
 import CoverCanvas from '../components/CoverCanvas';
 import { listNovels, saveNovel, deleteNovel } from '../db';
 import type { Novel } from '../types';
 import { createEmptyNovel } from '../types';
 import { countNovelChars } from '../lib/textStats';
+
+const gridVariants: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } },
+};
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 18, scale: 0.97 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
+  },
+  exit: { opacity: 0, scale: 0.9, transition: { duration: 0.2 } },
+};
 
 export default function Dashboard() {
   const [novels, setNovels] = useState<Novel[] | null>(null);
@@ -73,6 +89,11 @@ export default function Dashboard() {
 
   return (
     <div className="app-shell">
+      <div className="hero-blobs">
+        <span />
+        <span />
+        <span />
+      </div>
       <div className="app-main">
         <TopBar
           right={
@@ -94,15 +115,26 @@ export default function Dashboard() {
           }
         />
         <div className="page">
-          <h1>あなたの作品</h1>
-          <p style={{ color: 'var(--text-soft)' }}>
-            完全無料でブラウザだけで小説を執筆・整理し、Amazon
-            KDP（Kindleダイレクト・パブリッシング）向けの原稿を書き出せます。データはこの端末のブラウザ内にのみ保存されます。
-          </p>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <h1>あなたの作品</h1>
+            <p style={{ color: 'var(--text-soft)' }}>
+              完全無料でブラウザだけで小説を執筆・整理し、Amazon
+              KDP（Kindleダイレクト・パブリッシング）向けの原稿を書き出せます。データはこの端末のブラウザ内にのみ保存されます。
+            </p>
+          </motion.div>
 
-          <div className="novel-grid">
+          <motion.div
+            className="novel-grid"
+            variants={gridVariants}
+            initial="hidden"
+            animate="show"
+          >
             {creating ? (
-              <div className="novel-card">
+              <motion.div className="novel-card" variants={cardVariants}>
                 <div className="body" style={{ gap: 10 }}>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>
                     作品タイトル
@@ -133,67 +165,80 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ) : (
-              <button
+              <motion.button
                 className="new-novel-card"
+                variants={cardVariants}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => {
                   setCreating(true);
                   setNewTitle('');
                 }}
               >
                 ＋ 新しい小説を書き始める
-              </button>
+              </motion.button>
             )}
 
             {novels === null && (
               <p style={{ color: 'var(--text-soft)' }}>読み込み中…</p>
             )}
 
-            {novels?.map((n) => {
-              const chars = countNovelChars(n.chapters);
-              return (
-                <div className="novel-card" key={n.id}>
-                  <div
-                    className="cover"
-                    onClick={() => navigate(`/novel/${n.id}`)}
-                    role="button"
+            <AnimatePresence>
+              {novels?.map((n) => {
+                const chars = countNovelChars(n.chapters);
+                return (
+                  <motion.div
+                    className="novel-card"
+                    key={n.id}
+                    variants={cardVariants}
+                    exit="exit"
+                    layout
+                    whileHover={{ y: -6, boxShadow: 'var(--shadow-lg)' }}
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    <CoverCanvas novel={n} width={220} height={120} />
-                  </div>
-                  <div
-                    className="body"
-                    onClick={() => navigate(`/novel/${n.id}`)}
-                    role="button"
-                  >
-                    <strong style={{ color: 'var(--text-h)' }}>
-                      {n.title}
-                    </strong>
-                    <span className="meta">
-                      {n.chapters.length}章 ・ {chars.toLocaleString()}文字
-                    </span>
-                    <span className="meta">
-                      {n.genre || 'ジャンル未設定'}
-                    </span>
-                  </div>
-                  <div className="actions">
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => handleExportBackup(n)}
+                    <div
+                      className="cover"
+                      onClick={() => navigate(`/novel/${n.id}`)}
+                      role="button"
                     >
-                      バックアップ
-                    </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleDelete(n.id, n.title)}
+                      <CoverCanvas novel={n} width={220} height={120} />
+                    </div>
+                    <div
+                      className="body"
+                      onClick={() => navigate(`/novel/${n.id}`)}
+                      role="button"
                     >
-                      削除
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      <strong style={{ color: 'var(--text-h)' }}>
+                        {n.title}
+                      </strong>
+                      <span className="meta">
+                        {n.chapters.length}章 ・ {chars.toLocaleString()}文字
+                      </span>
+                      <span className="meta">
+                        {n.genre || 'ジャンル未設定'}
+                      </span>
+                    </div>
+                    <div className="actions">
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => handleExportBackup(n)}
+                      >
+                        バックアップ
+                      </button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleDelete(n.id, n.title)}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
 
           {novels && novels.length === 0 && !creating && (
             <div className="empty-state">

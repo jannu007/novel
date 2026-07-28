@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import TopBar from '../components/TopBar';
 import { useNovel } from '../lib/useNovel';
 import type { Chapter, PlotPoint, PlotStatus } from '../types';
@@ -18,6 +19,12 @@ const STATUSES: { key: PlotStatus; label: string }[] = [
   { key: 'doing', label: '執筆中' },
   { key: 'done', label: '完成' },
 ];
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const } },
+  exit: { opacity: 0, x: -12, transition: { duration: 0.18 } },
+};
 
 export default function Plot() {
   const { id } = useParams();
@@ -141,9 +148,14 @@ export default function Plot() {
         <div className="page">
           <div className="row between">
             <h1>プロット・あらすじ</h1>
-            <button className="btn btn-primary" onClick={addPoint}>
+            <motion.button
+              className="btn btn-primary"
+              onClick={addPoint}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.96 }}
+            >
               ＋ プロットを追加
-            </button>
+            </motion.button>
           </div>
 
           <div className="field">
@@ -169,78 +181,117 @@ export default function Plot() {
                 執筆画面に同名の章として書き込まれます（そのままでは簡易的な文章のため、必ず読み返して手直ししてください）。
               </p>
               <div className="row wrap" style={{ marginTop: 8 }}>
-                <button className="btn btn-primary" onClick={() => handleGenerate(0)}>
+                <motion.button
+                  className="btn btn-primary"
+                  onClick={() => handleGenerate(0)}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.96 }}
+                >
                   ✨ あらすじから自動生成
-                </button>
+                </motion.button>
                 {draft && (
-                  <button className="btn" onClick={() => handleGenerate(variation + 1)}>
+                  <motion.button
+                    className="btn"
+                    onClick={() => handleGenerate(variation + 1)}
+                    whileHover={{ scale: 1.03, rotate: -2 }}
+                    whileTap={{ scale: 0.96 }}
+                  >
                     🎲 別バージョン
-                  </button>
+                  </motion.button>
                 )}
               </div>
 
-              {draft && (
-                <div style={{ marginTop: 16 }}>
-                  <div className="row" style={{ marginBottom: 8 }}>
-                    <span
-                      style={{
-                        color:
-                          FOUR_ACT_LABELS.reduce(
+              <AnimatePresence>
+                {draft && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div style={{ marginTop: 16 }}>
+                      <div className="row" style={{ marginBottom: 8 }}>
+                        <span
+                          style={{
+                            color:
+                              FOUR_ACT_LABELS.reduce(
+                                (sum, l) => sum + countChars(draft[l.key]),
+                                0
+                              ) >= FOUR_ACT_MIN_TOTAL_CHARS
+                                ? 'var(--success)'
+                                : 'var(--danger)',
+                            fontWeight: 700,
+                          }}
+                        >
+                          合計{' '}
+                          {FOUR_ACT_LABELS.reduce(
                             (sum, l) => sum + countChars(draft[l.key]),
                             0
-                          ) >= FOUR_ACT_MIN_TOTAL_CHARS
-                            ? 'var(--success)'
-                            : 'var(--danger)',
-                        fontWeight: 700,
-                      }}
-                    >
-                      合計{' '}
-                      {FOUR_ACT_LABELS.reduce(
-                        (sum, l) => sum + countChars(draft[l.key]),
-                        0
-                      ).toLocaleString()}
-                      字
-                    </span>
-                    <span className="hint">
-                      （目安: {FOUR_ACT_MIN_TOTAL_CHARS.toLocaleString()}字以上）
-                    </span>
-                  </div>
-                  {FOUR_ACT_LABELS.map((label) => (
-                    <div key={label.key} className="item-row">
-                      <div className="item-row-head">
-                        <strong>{label.title}</strong>
-                        <span className="tag">{countChars(draft[label.key])}字</span>
-                      </div>
-                      <textarea
-                        className="textarea"
-                        rows={10}
-                        value={draft[label.key]}
-                        onChange={(e) =>
-                          setDraft((d) => (d ? { ...d, [label.key]: e.target.value } : d))
-                        }
-                      />
-                    </div>
-                  ))}
-                  <div className="row" style={{ marginTop: 8 }}>
-                    <button className="btn btn-primary" onClick={applyDraftToChapters}>
-                      この内容を章に反映する
-                    </button>
-                    {applied && (
-                      <>
-                        <span style={{ color: 'var(--success)', fontSize: 13 }}>
-                          ✓ 反映しました
+                          ).toLocaleString()}
+                          字
                         </span>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => navigate(`/novel/${novel.id}`)}
+                        <span className="hint">
+                          （目安: {FOUR_ACT_MIN_TOTAL_CHARS.toLocaleString()}字以上）
+                        </span>
+                      </div>
+                      <motion.div
+                        initial="hidden"
+                        animate="show"
+                        variants={{ show: { transition: { staggerChildren: 0.08 } } }}
+                      >
+                        {FOUR_ACT_LABELS.map((label) => (
+                          <motion.div key={label.key} className="item-row" variants={itemVariants}>
+                            <div className="item-row-head">
+                              <strong>{label.title}</strong>
+                              <span className="tag">{countChars(draft[label.key])}字</span>
+                            </div>
+                            <textarea
+                              className="textarea"
+                              rows={10}
+                              value={draft[label.key]}
+                              onChange={(e) =>
+                                setDraft((d) => (d ? { ...d, [label.key]: e.target.value } : d))
+                              }
+                            />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                      <div className="row" style={{ marginTop: 8 }}>
+                        <motion.button
+                          className="btn btn-primary"
+                          onClick={applyDraftToChapters}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.96 }}
                         >
-                          執筆画面を開く →
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
+                          この内容を章に反映する
+                        </motion.button>
+                        <AnimatePresence>
+                          {applied && (
+                            <motion.span
+                              initial={{ opacity: 0, scale: 0.6 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                              style={{ color: 'var(--success)', fontSize: 13 }}
+                            >
+                              ✓ 反映しました
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                        {applied && (
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => navigate(`/novel/${novel.id}`)}
+                          >
+                            執筆画面を開く →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -270,37 +321,43 @@ export default function Plot() {
                       （目安: {FOUR_ACT_MIN_TOTAL_CHARS.toLocaleString()}字以上）
                     </span>
                   </div>
-                  {currentFourAct.map((item) => (
-                    <div key={item.key} className="item-row">
-                      <div className="item-row-head">
-                        <strong>{item.title}</strong>
-                        <span className="tag">
-                          {item.chapter ? countChars(item.chapter.content).toLocaleString() : 0}字
-                        </span>
-                        {item.chapter && (
-                          <button
-                            className="btn btn-sm"
-                            onClick={() =>
-                              navigate(`/novel/${novel.id}?chapter=${item.chapter!.id}`)
-                            }
-                          >
-                            執筆画面で開く →
-                          </button>
-                        )}
-                      </div>
-                      <p
-                        style={{
-                          fontSize: 13,
-                          color: 'var(--text-soft)',
-                          maxHeight: 100,
-                          overflow: 'auto',
-                          whiteSpace: 'pre-wrap',
-                        }}
-                      >
-                        {item.chapter?.content || '（本文がありません）'}
-                      </p>
-                    </div>
-                  ))}
+                  <motion.div
+                    initial="hidden"
+                    animate="show"
+                    variants={{ show: { transition: { staggerChildren: 0.06 } } }}
+                  >
+                    {currentFourAct.map((item) => (
+                      <motion.div key={item.key} className="item-row" variants={itemVariants}>
+                        <div className="item-row-head">
+                          <strong>{item.title}</strong>
+                          <span className="tag">
+                            {item.chapter ? countChars(item.chapter.content).toLocaleString() : 0}字
+                          </span>
+                          {item.chapter && (
+                            <button
+                              className="btn btn-sm"
+                              onClick={() =>
+                                navigate(`/novel/${novel.id}?chapter=${item.chapter!.id}`)
+                              }
+                            >
+                              執筆画面で開く →
+                            </button>
+                          )}
+                        </div>
+                        <p
+                          style={{
+                            fontSize: 13,
+                            color: 'var(--text-soft)',
+                            maxHeight: 100,
+                            overflow: 'auto',
+                            whiteSpace: 'pre-wrap',
+                          }}
+                        >
+                          {item.chapter?.content || '（本文がありません）'}
+                        </p>
+                      </motion.div>
+                    ))}
+                  </motion.div>
                 </>
               )}
             </div>
@@ -312,44 +369,54 @@ export default function Plot() {
               起承転結やシーンの流れを箇条書きで整理しましょう。
             </div>
           )}
-          {novel.plotPoints.map((p) => (
-            <div className="item-row" key={p.id}>
-              <div className="item-row-head">
-                <input
-                  className="name"
-                  placeholder="シーン・出来事のタイトル"
-                  value={p.title}
-                  onChange={(e) => patch(p.id, { title: e.target.value })}
+          <AnimatePresence>
+            {novel.plotPoints.map((p) => (
+              <motion.div
+                className="item-row"
+                key={p.id}
+                layout
+                variants={itemVariants}
+                initial="hidden"
+                animate="show"
+                exit="exit"
+              >
+                <div className="item-row-head">
+                  <input
+                    className="name"
+                    placeholder="シーン・出来事のタイトル"
+                    value={p.title}
+                    onChange={(e) => patch(p.id, { title: e.target.value })}
+                  />
+                  <select
+                    className="status-select"
+                    value={p.status}
+                    onChange={(e) =>
+                      patch(p.id, { status: e.target.value as PlotStatus })
+                    }
+                  >
+                    {STATUSES.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn btn-sm btn-danger"
+                    onClick={() => remove(p.id)}
+                  >
+                    削除
+                  </button>
+                </div>
+                <textarea
+                  className="textarea"
+                  rows={2}
+                  placeholder="このシーンで起こること、伏線、目的など"
+                  value={p.detail}
+                  onChange={(e) => patch(p.id, { detail: e.target.value })}
                 />
-                <select
-                  className="status-select"
-                  value={p.status}
-                  onChange={(e) =>
-                    patch(p.id, { status: e.target.value as PlotStatus })
-                  }
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="btn btn-sm btn-danger"
-                  onClick={() => remove(p.id)}
-                >
-                  削除
-                </button>
-              </div>
-              <textarea
-                className="textarea"
-                rows={2}
-                placeholder="このシーンで起こること、伏線、目的など"
-                value={p.detail}
-                onChange={(e) => patch(p.id, { detail: e.target.value })}
-              />
-            </div>
-          ))}
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </div>
     </div>

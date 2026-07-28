@@ -12,6 +12,7 @@
   "dependencies": {
     "docx": "^9.7.1",
     "file-saver": "^2.0.5",
+    "framer-motion": "^12.43.0",
     "idb-keyval": "^6.3.0",
     "jszip": "^3.10.1",
     "react": "^19.2.7",

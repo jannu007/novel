@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import TopBar from '../components/TopBar';
 import { useNovel } from '../lib/useNovel';
 import type { Chapter } from '../types';
@@ -134,7 +135,13 @@ export default function Editor() {
           <aside className="chapter-sidebar">
             <ul className="chapter-list">
               {chapters.map((c, i) => (
-                <li key={c.id}>
+                <motion.li
+                  key={c.id}
+                  layout
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.25, delay: i * 0.02 }}
+                >
                   <button
                     className={`chapter-item ${
                       c.id === activeChapterId ? 'active' : ''
@@ -172,7 +179,7 @@ export default function Editor() {
                       </button>
                     </div>
                   )}
-                </li>
+                </motion.li>
               ))}
             </ul>
             <div style={{ padding: 10 }}>
@@ -183,76 +190,138 @@ export default function Editor() {
           </aside>
 
           <div className="editor-main">
-            {activeChapter ? (
-              <>
-                <div className="editor-toolbar">
-                  <input
-                    className="chapter-title"
-                    value={activeChapter.title}
-                    onChange={(e) =>
-                      patchChapter(activeChapter.id, { title: e.target.value })
-                    }
-                    placeholder="章のタイトル"
-                  />
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => setShowMemo((s) => !s)}
-                  >
-                    {showMemo ? 'メモを閉じる' : 'メモ'}
-                  </button>
-                </div>
-                {showMemo && (
-                  <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)' }}>
-                    <textarea
-                      className="textarea"
-                      rows={3}
-                      placeholder="この章のメモ・伏線・アイデアなど"
-                      value={activeChapter.memo}
+            <AnimatePresence mode="wait">
+              {activeChapter ? (
+                <motion.div
+                  key={activeChapter.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: 1,
+                    minHeight: 0,
+                  }}
+                >
+                  <div className="editor-toolbar">
+                    <input
+                      className="chapter-title"
+                      value={activeChapter.title}
                       onChange={(e) =>
-                        patchChapter(activeChapter.id, { memo: e.target.value })
+                        patchChapter(activeChapter.id, { title: e.target.value })
                       }
+                      placeholder="章のタイトル"
                     />
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setShowMemo((s) => !s)}
+                    >
+                      {showMemo ? 'メモを閉じる' : 'メモ'}
+                    </button>
                   </div>
-                )}
-                <textarea
-                  className="manuscript"
-                  value={activeChapter.content}
-                  onChange={(e) =>
-                    patchChapter(activeChapter.id, { content: e.target.value })
-                  }
-                  placeholder="ここから物語を書き始めましょう…"
-                  spellCheck={false}
-                />
-                <div className="editor-statusbar">
-                  <span>
-                    この章: <strong>{countChars(activeChapter.content).toLocaleString()}</strong> 文字
-                  </span>
-                  <span>
-                    作品全体: <strong>{totalChars.toLocaleString()}</strong> 文字
-                  </span>
-                  <span className="row" style={{ gap: 6 }}>
-                    目標達成率
-                    <span className="progress-bar">
-                      <div style={{ width: `${totalPct}%` }} />
+                  <AnimatePresence>
+                    {showMemo && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        style={{
+                          overflow: 'hidden',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        <div style={{ padding: '10px 20px' }}>
+                          <textarea
+                            className="textarea"
+                            rows={3}
+                            placeholder="この章のメモ・伏線・アイデアなど"
+                            value={activeChapter.memo}
+                            onChange={(e) =>
+                              patchChapter(activeChapter.id, { memo: e.target.value })
+                            }
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <textarea
+                    className="manuscript"
+                    value={activeChapter.content}
+                    onChange={(e) =>
+                      patchChapter(activeChapter.id, { content: e.target.value })
+                    }
+                    placeholder="ここから物語を書き始めましょう…"
+                    spellCheck={false}
+                  />
+                  <div className="editor-statusbar">
+                    <span>
+                      この章: <strong>{countChars(activeChapter.content).toLocaleString()}</strong> 文字
                     </span>
-                    {totalPct}%
-                  </span>
-                  <span className="row" style={{ gap: 6 }}>
-                    今日:
-                    <span className="progress-bar">
-                      <div style={{ width: `${dailyPct}%` }} />
+                    <span>
+                      作品全体: <strong>{totalChars.toLocaleString()}</strong> 文字
                     </span>
-                    {todayChars.toLocaleString()} / {dailyTarget.toLocaleString()}字
-                  </span>
-                  <span>
-                    {saveStatus === 'saving' && '保存中…'}
-                    {saveStatus === 'saved' && '✓ 保存済み'}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="empty-state">章を選択してください</div>
-            )}
+                    <span className="row" style={{ gap: 6 }}>
+                      目標達成率
+                      <span className="progress-bar">
+                        <motion.div
+                          animate={{ width: `${totalPct}%` }}
+                          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        />
+                      </span>
+                      {totalPct}%
+                    </span>
+                    <span className="row" style={{ gap: 6 }}>
+                      今日:
+                      <span className="progress-bar">
+                        <motion.div
+                          animate={{ width: `${dailyPct}%` }}
+                          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        />
+                      </span>
+                      {todayChars.toLocaleString()} / {dailyTarget.toLocaleString()}字
+                    </span>
+                    <span style={{ minWidth: 70 }}>
+                      <AnimatePresence mode="wait">
+                        {saveStatus === 'saving' && (
+                          <motion.span
+                            key="saving"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                          >
+                            保存中…
+                          </motion.span>
+                        )}
+                        {saveStatus === 'saved' && (
+                          <motion.span
+                            key="saved"
+                            initial={{ opacity: 0, scale: 0.6 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                            style={{ color: 'var(--success)' }}
+                          >
+                            ✓ 保存済み
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </span>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  className="empty-state"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  章を選択してください
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

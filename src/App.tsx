@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
 import Characters from './pages/Characters';
@@ -6,18 +7,25 @@ import Plot from './pages/Plot';
 import Export from './pages/Export';
 import Guide from './pages/Guide';
 import PrintPreview from './pages/PrintPreview';
+import PageTransition from './components/PageTransition';
 
 export default function App() {
+  const location = useLocation();
   return (
-    <Routes>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/novel/:id" element={<Editor />} />
-      <Route path="/novel/:id/characters" element={<Characters />} />
-      <Route path="/novel/:id/plot" element={<Plot />} />
-      <Route path="/novel/:id/export" element={<Export />} />
-      <Route path="/novel/:id/print" element={<PrintPreview />} />
-      <Route path="/guide" element={<Guide />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <AnimatePresence mode="wait" initial={false}>
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<PageTransition><Dashboard /></PageTransition>} />
+        <Route path="/novel/:id" element={<PageTransition><Editor /></PageTransition>} />
+        <Route
+          path="/novel/:id/characters"
+          element={<PageTransition><Characters /></PageTransition>}
+        />
+        <Route path="/novel/:id/plot" element={<PageTransition><Plot /></PageTransition>} />
+        <Route path="/novel/:id/export" element={<PageTransition><Export /></PageTransition>} />
+        <Route path="/novel/:id/print" element={<PrintPreview />} />
+        <Route path="/guide" element={<PageTransition><Guide /></PageTransition>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AnimatePresence>
   );
 }
