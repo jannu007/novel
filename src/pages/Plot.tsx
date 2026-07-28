@@ -6,6 +6,8 @@ import type { Chapter, PlotPoint, PlotStatus } from '../types';
 import {
   generateFourActDraft,
   FOUR_ACT_LABELS,
+  FOUR_ACT_MIN_TOTAL_CHARS,
+  FOUR_ACT_TARGET_CHARS_PER_ACT,
   type FourActDraft,
 } from '../lib/draftGenerator';
 import { countChars } from '../lib/textStats';
@@ -113,6 +115,16 @@ export default function Plot() {
     setApplied(true);
   }
 
+  const currentFourAct = FOUR_ACT_LABELS.map((label) => ({
+    ...label,
+    chapter: novel.chapters.find((c) => c.title === label.title),
+  }));
+  const currentFourActTotal = currentFourAct.reduce(
+    (sum, item) => sum + (item.chapter ? countChars(item.chapter.content) : 0),
+    0
+  );
+  const currentFourActComplete = currentFourAct.every((item) => item.chapter);
+
   return (
     <div className="app-shell">
       <div className="app-main">
@@ -152,7 +164,8 @@ export default function Plot() {
             <div className="card">
               <p style={{ color: 'var(--text-soft)', fontSize: 13 }}>
                 あらすじ・キャラクター設定・プロットポイントをもとに、外部AIを使わず端末内だけで
-                「起」「承」「転」「結」それぞれ約200字の下書きを自動で組み立てます。生成後に「章に反映」すると、
+                「起」「承」「転」「結」それぞれ約{FOUR_ACT_TARGET_CHARS_PER_ACT.toLocaleString()}字（4パート合計
+                {FOUR_ACT_MIN_TOTAL_CHARS.toLocaleString()}字以上）の下書きを自動で組み立てます。生成後に「章に反映」すると、
                 執筆画面に同名の章として書き込まれます（そのままでは簡易的な文章のため、必ず読み返して手直ししてください）。
               </p>
               <div className="row wrap" style={{ marginTop: 8 }}>
@@ -168,6 +181,30 @@ export default function Plot() {
 
               {draft && (
                 <div style={{ marginTop: 16 }}>
+                  <div className="row" style={{ marginBottom: 8 }}>
+                    <span
+                      style={{
+                        color:
+                          FOUR_ACT_LABELS.reduce(
+                            (sum, l) => sum + countChars(draft[l.key]),
+                            0
+                          ) >= FOUR_ACT_MIN_TOTAL_CHARS
+                            ? 'var(--success)'
+                            : 'var(--danger)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      合計{' '}
+                      {FOUR_ACT_LABELS.reduce(
+                        (sum, l) => sum + countChars(draft[l.key]),
+                        0
+                      ).toLocaleString()}
+                      字
+                    </span>
+                    <span className="hint">
+                      （目安: {FOUR_ACT_MIN_TOTAL_CHARS.toLocaleString()}字以上）
+                    </span>
+                  </div>
                   {FOUR_ACT_LABELS.map((label) => (
                     <div key={label.key} className="item-row">
                       <div className="item-row-head">
@@ -176,7 +213,7 @@ export default function Plot() {
                       </div>
                       <textarea
                         className="textarea"
-                        rows={4}
+                        rows={10}
                         value={draft[label.key]}
                         onChange={(e) =>
                           setDraft((d) => (d ? { ...d, [label.key]: e.target.value } : d))
@@ -203,6 +240,68 @@ export default function Plot() {
                     )}
                   </div>
                 </div>
+              )}
+            </div>
+          </div>
+
+          <div className="section">
+            <h2>起承転結の確認</h2>
+            <div className="card">
+              {!currentFourActComplete ? (
+                <p style={{ color: 'var(--text-soft)', fontSize: 13 }}>
+                  「起」「承」「転」「結」という章がまだ揃っていません。上の「あらすじから自動生成」→「章に反映する」を実行するか、執筆画面で自分でその名前の章を作ると、ここで内容を確認できるようになります。
+                </p>
+              ) : (
+                <>
+                  <div className="row" style={{ marginBottom: 12 }}>
+                    <span
+                      style={{
+                        color:
+                          currentFourActTotal >= FOUR_ACT_MIN_TOTAL_CHARS
+                            ? 'var(--success)'
+                            : 'var(--danger)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {currentFourActTotal >= FOUR_ACT_MIN_TOTAL_CHARS ? '✓' : '！'} 合計{' '}
+                      {currentFourActTotal.toLocaleString()}字
+                    </span>
+                    <span className="hint">
+                      （目安: {FOUR_ACT_MIN_TOTAL_CHARS.toLocaleString()}字以上）
+                    </span>
+                  </div>
+                  {currentFourAct.map((item) => (
+                    <div key={item.key} className="item-row">
+                      <div className="item-row-head">
+                        <strong>{item.title}</strong>
+                        <span className="tag">
+                          {item.chapter ? countChars(item.chapter.content).toLocaleString() : 0}字
+                        </span>
+                        {item.chapter && (
+                          <button
+                            className="btn btn-sm"
+                            onClick={() =>
+                              navigate(`/novel/${novel.id}?chapter=${item.chapter!.id}`)
+                            }
+                          >
+                            執筆画面で開く →
+                          </button>
+                        )}
+                      </div>
+                      <p
+                        style={{
+                          fontSize: 13,
+                          color: 'var(--text-soft)',
+                          maxHeight: 100,
+                          overflow: 'auto',
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {item.chapter?.content || '（本文がありません）'}
+                      </p>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </div>

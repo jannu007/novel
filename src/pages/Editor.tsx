@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { useNovel } from '../lib/useNovel';
 import type { Chapter } from '../types';
@@ -7,9 +7,11 @@ import { countChars, countNovelChars, todayStr } from '../lib/textStats';
 
 export default function Editor() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { novel, update, saveStatus } = useNovel(id);
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [showMemo, setShowMemo] = useState(false);
+  const appliedInitialChapter = useRef(false);
 
   const chapters = useMemo(
     () => (novel ? [...novel.chapters].sort((a, b) => a.order - b.order) : []),
@@ -17,10 +19,18 @@ export default function Editor() {
   );
 
   useEffect(() => {
-    if (chapters.length > 0 && !activeChapterId) {
-      setActiveChapterId(chapters[0].id);
+    if (chapters.length === 0 || appliedInitialChapter.current) return;
+    const requested = searchParams.get('chapter');
+    if (requested && chapters.some((c) => c.id === requested)) {
+      setActiveChapterId(requested);
+      appliedInitialChapter.current = true;
+      return;
     }
-  }, [chapters, activeChapterId]);
+    if (!activeChapterId) {
+      setActiveChapterId(chapters[0].id);
+      appliedInitialChapter.current = true;
+    }
+  }, [chapters, searchParams, activeChapterId]);
 
   // 今日の執筆進捗の基準値を日付が変わるたびリセット
   useEffect(() => {
