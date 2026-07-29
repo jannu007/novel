@@ -11,9 +11,9 @@ interface Props {
 }
 
 const TABS: { key: NonNullable<Props['activeTab']>; label: string; path: (id: string) => string }[] = [
-  { key: 'write', label: '執筆', path: (id) => `/novel/${id}` },
   { key: 'characters', label: 'キャラクター', path: (id) => `/novel/${id}/characters` },
   { key: 'plot', label: 'プロット', path: (id) => `/novel/${id}/plot` },
+  { key: 'write', label: '執筆', path: (id) => `/novel/${id}` },
   { key: 'export', label: '出版準備', path: (id) => `/novel/${id}/export` },
 ];
 
