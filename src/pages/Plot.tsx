@@ -94,8 +94,8 @@ export default function Plot() {
       let chapters = [...n.chapters];
       if (
         chapters.length === 1 &&
-        chapters[0].content.trim() === '' &&
-        !FOUR_ACT_LABELS.some((l) => l.title === chapters[0].title)
+        chapters[0].title === '第一章' &&
+        chapters[0].content.trim() === ''
       ) {
         chapters = [];
       }
