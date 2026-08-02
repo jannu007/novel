@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import TopBar from '../components/TopBar';
 import CoverCanvas from '../components/CoverCanvas';
+import EmptyIllustration from '../components/EmptyIllustration';
 import { listNovels, saveNovel, deleteNovel } from '../db';
 import type { Novel } from '../types';
 import { createEmptyNovel } from '../types';
@@ -242,6 +243,7 @@ export default function Dashboard() {
 
           {novels && novels.length === 0 && !creating && (
             <div className="empty-state">
+              <EmptyIllustration variant="novels" />
               まだ作品がありません。「＋
               新しい小説を書き始める」から最初の一冊を作成しましょう。
             </div>

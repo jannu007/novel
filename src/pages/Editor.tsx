@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import TopBar from '../components/TopBar';
+import EmptyIllustration from '../components/EmptyIllustration';
 import { useNovel } from '../lib/useNovel';
 import type { Chapter } from '../types';
 import { countChars, countNovelChars, todayStr } from '../lib/textStats';
@@ -318,6 +319,7 @@ export default function Editor() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
+                  <EmptyIllustration variant="chapter" />
                   章を選択してください
                 </motion.div>
               )}

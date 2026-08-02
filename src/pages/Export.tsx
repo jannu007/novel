@@ -141,9 +141,9 @@ export default function Export() {
             <h2>表紙・挿し絵（自動生成）</h2>
             <div className="card">
               <p style={{ color: 'var(--text-soft)', fontSize: 13 }}>
-                タイトル・ジャンルから、外部AIを使わず端末内だけでCanvasにより表紙デザインを自動生成します。
-                実写やイラストではなく、色とアイコンによる抽象的なデザイン表紙です。「挿し絵」は各章の冒頭に入る
-                同系統の装飾バナー画像で、EPUB・DOCX・印刷用PDFに自動的に挿入されます。
+                タイトル・ジャンルから、外部AIを使わず端末内だけでCanvasにより水彩画風の表紙デザインを自動生成します。
+                実写や生成AIのイラストではなく、にじみと筆致で表現した抽象的な水彩デザインです。「挿し絵」は各章の冒頭に入る
+                同系統の水彩バナー画像で、EPUB・DOCX・印刷用PDFに自動的に挿入されます。
               </p>
               <div className="row wrap" style={{ alignItems: 'flex-start', gap: 20 }}>
                 <AnimatePresence mode="wait">
@@ -324,6 +324,13 @@ export default function Export() {
                 <p>ペーパーバック向けに判型に合わせたレイアウトを確認し、ブラウザの印刷機能でPDF保存できます。</p>
                 <Link className="btn btn-primary btn-block" to={`/novel/${novel.id}/print`}>
                   プレビューを開く
+                </Link>
+              </motion.div>
+              <motion.div className="card export-card" variants={cardVariants}>
+                <h3>📖 縦書きリーダー</h3>
+                <p>実際の文庫本のように縦書き・ページめくりで読める画面です。スワイプで次のページをめくれます。</p>
+                <Link className="btn btn-primary btn-block" to={`/novel/${novel.id}/read`}>
+                  縦書きで読む
                 </Link>
               </motion.div>
               <motion.div className="card export-card" variants={cardVariants}>

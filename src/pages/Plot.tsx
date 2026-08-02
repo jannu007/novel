@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import TopBar from '../components/TopBar';
+import EmptyIllustration from '../components/EmptyIllustration';
 import { useNovel } from '../lib/useNovel';
 import type { Chapter, PlotPoint, PlotStatus } from '../types';
 import {
@@ -299,9 +300,12 @@ export default function Plot() {
             <h2>起承転結の確認</h2>
             <div className="card">
               {!currentFourActComplete ? (
-                <p style={{ color: 'var(--text-soft)', fontSize: 13 }}>
-                  「起」「承」「転」「結」という章がまだ揃っていません。上の「あらすじから自動生成」→「章に反映する」を実行するか、執筆画面で自分でその名前の章を作ると、ここで内容を確認できるようになります。
-                </p>
+                <div className="empty-state" style={{ padding: '20px 20px' }}>
+                  <EmptyIllustration variant="fourAct" />
+                  <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: 0 }}>
+                    「起」「承」「転」「結」という章がまだ揃っていません。上の「あらすじから自動生成」→「章に反映する」を実行するか、執筆画面で自分でその名前の章を作ると、ここで内容を確認できるようになります。
+                  </p>
+                </div>
               ) : (
                 <>
                   <div className="row" style={{ marginBottom: 12 }}>
@@ -366,6 +370,7 @@ export default function Plot() {
           <h2 style={{ marginTop: 24 }}>プロットポイント</h2>
           {novel.plotPoints.length === 0 && (
             <div className="empty-state">
+              <EmptyIllustration variant="plot" />
               起承転結やシーンの流れを箇条書きで整理しましょう。
             </div>
           )}

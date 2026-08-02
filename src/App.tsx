@@ -7,6 +7,7 @@ import Plot from './pages/Plot';
 import Export from './pages/Export';
 import Guide from './pages/Guide';
 import PrintPreview from './pages/PrintPreview';
+import Reader from './pages/Reader';
 import PageTransition from './components/PageTransition';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/novel/:id/plot" element={<PageTransition><Plot /></PageTransition>} />
         <Route path="/novel/:id/export" element={<PageTransition><Export /></PageTransition>} />
         <Route path="/novel/:id/print" element={<PrintPreview />} />
+        <Route path="/novel/:id/read" element={<Reader />} />
         <Route path="/guide" element={<PageTransition><Guide /></PageTransition>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

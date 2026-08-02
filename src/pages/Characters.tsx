@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import TopBar from '../components/TopBar';
+import EmptyIllustration from '../components/EmptyIllustration';
 import { useNovel } from '../lib/useNovel';
 import type { Character } from '../types';
 
@@ -83,6 +84,7 @@ export default function Characters() {
 
           {novel.characters.length === 0 && (
             <div className="empty-state">
+              <EmptyIllustration variant="characters" />
               まだキャラクターが登録されていません。
             </div>
           )}
