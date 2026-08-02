@@ -6,25 +6,31 @@ import { generateCoverImage, generateChapterIllustration } from './coverGenerato
 
 const STYLE_CSS = `
 @charset "UTF-8";
+html, body {
+  -epub-writing-mode: vertical-rl;
+  -webkit-writing-mode: vertical-rl;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
 body {
   font-family: serif;
   line-height: 1.9;
   margin: 0;
-  padding: 0 1em;
+  padding: 1em 0;
 }
 h1.chapter-title {
   font-size: 1.3em;
   text-align: center;
-  margin: 2em 0 2em;
+  margin: 0 2em;
 }
 h1.book-title {
   font-size: 1.8em;
   text-align: center;
-  margin-top: 35%;
+  margin-right: 35%;
 }
 p.author {
   text-align: center;
-  margin-top: 1.5em;
+  margin-right: 1.5em;
 }
 p {
   margin: 0;
@@ -33,23 +39,38 @@ p {
 p.scene-break {
   text-align: center;
   text-indent: 0;
-  margin: 1.5em 0;
+  margin: 0 1.5em;
 }
 p.no-indent {
   text-indent: 0;
-}
-img.illust {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin: 0 0 1.5em;
 }
 img.cover-image {
   display: block;
   width: 100%;
   height: 100%;
 }
-body.cover-body { margin: 0; padding: 0; }
+body.cover-body {
+  writing-mode: horizontal-tb;
+  margin: 0;
+  padding: 0;
+}
+body.illust-body {
+  writing-mode: horizontal-tb;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+img.illust {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+nav#toc {
+  writing-mode: horizontal-tb;
+}
 nav#toc ol { list-style: none; padding-left: 1em; }
 nav#toc li { margin-bottom: 0.8em; }
 `;
@@ -57,6 +78,10 @@ nav#toc li { margin-bottom: 0.8em; }
 function chapterFileName(i: number) {
   return `chapter-${String(i + 1).padStart(3, '0')}.xhtml`;
 }
+
+// 一部の簡易EPUBビューアは外部リンクCSSを解決できないことがあるため、
+// 縦書き指定は各ページにインラインでも埋め込み、リーダー実装への依存を減らす。
+const INLINE_STYLE_TAG = `<style type="text/css">${STYLE_CSS}</style>`;
 
 export async function generateEpub(novel: Novel): Promise<void> {
   const zip = new JSZip();
@@ -103,7 +128,7 @@ export async function generateEpub(novel: Novel): Promise<void> {
       'OEBPS/text/cover.xhtml',
       `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
-<head><title>${title}</title><link rel="stylesheet" type="text/css" href="../style.css"/></head>
+<head><title>${title}</title><link rel="stylesheet" type="text/css" href="../style.css"/>${INLINE_STYLE_TAG}</head>
 <body class="cover-body">
   <img class="cover-image" src="../images/cover.png" alt="${title}"/>
 </body>
@@ -117,7 +142,7 @@ export async function generateEpub(novel: Novel): Promise<void> {
     'OEBPS/text/title.xhtml',
     `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
-<head><title>${title}</title><link rel="stylesheet" type="text/css" href="../style.css"/></head>
+<head><title>${title}</title><link rel="stylesheet" type="text/css" href="../style.css"/>${INLINE_STYLE_TAG}</head>
 <body>
   <h1 class="book-title">${title}</h1>
   <p class="author">${author}</p>
@@ -132,6 +157,29 @@ export async function generateEpub(novel: Novel): Promise<void> {
     const fname = chapterFileName(i);
     const id = `chap${i + 1}`;
     const chTitle = escapeHtml(ch.title || `第${i + 1}章`);
+
+    if (withImages) {
+      const illust = await generateChapterIllustration(novel, ch.title || `第${i + 1}章`, i, 1200, 500);
+      const imgName = `illust-${String(i + 1).padStart(3, '0')}.png`;
+      const illustPageName = `illust-page-${String(i + 1).padStart(3, '0')}.xhtml`;
+      zip.file(`OEBPS/images/${imgName}`, illust.bytes);
+      manifestItems.push(
+        `<item id="img${i + 1}" href="images/${imgName}" media-type="image/png"/>`,
+        `<item id="illustpage${i + 1}" href="text/${illustPageName}" media-type="application/xhtml+xml"/>`
+      );
+      spineItems.push(`<itemref idref="illustpage${i + 1}"/>`);
+      zip.file(
+        `OEBPS/text/${illustPageName}`,
+        `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
+<head><title>${chTitle}</title><link rel="stylesheet" type="text/css" href="../style.css"/>${INLINE_STYLE_TAG}</head>
+<body class="illust-body">
+  <img class="illust" src="../images/${imgName}" alt=""/>
+</body>
+</html>`
+      );
+    }
+
     manifestItems.push(
       `<item id="${id}" href="text/${fname}" media-type="application/xhtml+xml"/>`
     );
@@ -142,25 +190,13 @@ export async function generateEpub(novel: Novel): Promise<void> {
     playOrder++;
     navLis.push(`<li><a href="text/${fname}">${chTitle}</a></li>`);
 
-    let illustHtml = '';
-    if (withImages) {
-      const illust = await generateChapterIllustration(novel, ch.title || `第${i + 1}章`, i, 1200, 500);
-      const imgName = `illust-${String(i + 1).padStart(3, '0')}.png`;
-      zip.file(`OEBPS/images/${imgName}`, illust.bytes);
-      manifestItems.push(
-        `<item id="img${i + 1}" href="images/${imgName}" media-type="image/png"/>`
-      );
-      illustHtml = `<img class="illust" src="../images/${imgName}" alt=""/>`;
-    }
-
     const bodyParas = contentToParagraphs(ch.content).join('\n');
     zip.file(
       `OEBPS/text/${fname}`,
       `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
-<head><title>${chTitle}</title><link rel="stylesheet" type="text/css" href="../style.css"/></head>
+<head><title>${chTitle}</title><link rel="stylesheet" type="text/css" href="../style.css"/>${INLINE_STYLE_TAG}</head>
 <body>
-  ${illustHtml}
   <h1 class="chapter-title">${chTitle}</h1>
   ${bodyParas || '<p class="no-indent"></p>'}
 </body>
@@ -177,12 +213,13 @@ export async function generateEpub(novel: Novel): Promise<void> {
     <dc:title>${title}</dc:title>
     <dc:creator>${author}</dc:creator>
     <dc:language>ja</dc:language>
-    <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>${coverMeta}
+    <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
+    <meta name="primary-writing-mode" content="vertical-rl"/>${coverMeta}
   </metadata>
   <manifest>
     ${manifestItems.join('\n    ')}
   </manifest>
-  <spine>
+  <spine page-progression-direction="rtl">
     ${spineItems.join('\n    ')}
   </spine>
 </package>`
@@ -192,7 +229,7 @@ export async function generateEpub(novel: Novel): Promise<void> {
     'OEBPS/nav.xhtml',
     `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="ja">
-<head><title>目次</title><link rel="stylesheet" type="text/css" href="style.css"/></head>
+<head><title>目次</title><link rel="stylesheet" type="text/css" href="style.css"/><style type="text/css">${STYLE_CSS}</style></head>
 <body>
   <nav epub:type="toc" id="toc">
     <h1>目次</h1>
