@@ -6,6 +6,7 @@ import EmptyIllustration from '../components/EmptyIllustration';
 import { useNovel } from '../lib/useNovel';
 import type { Chapter } from '../types';
 import { countChars, countNovelChars, todayStr } from '../lib/textStats';
+import { REWRITE_INSTRUCTIONS, applyRewriteInstruction } from '../lib/rewriteEngine';
 
 export default function Editor() {
   const { id } = useParams();
@@ -13,7 +14,20 @@ export default function Editor() {
   const { novel, update, saveStatus } = useNovel(id);
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [showMemo, setShowMemo] = useState(false);
+  const [showRewrite, setShowRewrite] = useState(false);
+  const [rewriteKey, setRewriteKey] = useState(REWRITE_INSTRUCTIONS[0].key);
+  const [rewriteSeed, setRewriteSeed] = useState(0);
+  const [rewritePreview, setRewritePreview] = useState<string | null>(null);
+  const [lastApplied, setLastApplied] = useState<{
+    chapterId: string;
+    previousContent: string;
+  } | null>(null);
   const appliedInitialChapter = useRef(false);
+
+  useEffect(() => {
+    setRewritePreview(null);
+    setRewriteSeed(0);
+  }, [activeChapterId]);
 
   const chapters = useMemo(
     () => (novel ? [...novel.chapters].sort((a, b) => a.order - b.order) : []),
@@ -78,6 +92,39 @@ export default function Editor() {
         c.id === chapterId ? { ...c, ...patch, updatedAt: Date.now() } : c
       ),
     }));
+  }
+
+  function generateRewritePreview() {
+    if (!activeChapter) return;
+    setRewritePreview(
+      applyRewriteInstruction(activeChapter.content, rewriteKey, novel!, rewriteSeed)
+    );
+  }
+
+  function retryRewritePreview() {
+    if (!activeChapter) return;
+    const nextSeed = rewriteSeed + 1;
+    setRewriteSeed(nextSeed);
+    setRewritePreview(
+      applyRewriteInstruction(activeChapter.content, rewriteKey, novel!, nextSeed)
+    );
+  }
+
+  function applyRewritePreview() {
+    if (!activeChapter || rewritePreview === null) return;
+    setLastApplied({ chapterId: activeChapter.id, previousContent: activeChapter.content });
+    patchChapter(activeChapter.id, { content: rewritePreview });
+    setRewritePreview(null);
+  }
+
+  function discardRewritePreview() {
+    setRewritePreview(null);
+  }
+
+  function undoRewrite() {
+    if (!activeChapter || !lastApplied || lastApplied.chapterId !== activeChapter.id) return;
+    patchChapter(activeChapter.id, { content: lastApplied.previousContent });
+    setLastApplied(null);
   }
 
   function addChapter() {
@@ -221,7 +268,92 @@ export default function Editor() {
                     >
                       {showMemo ? 'メモを閉じる' : 'メモ'}
                     </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setShowRewrite((s) => !s)}
+                    >
+                      {showRewrite ? '指示リライトを閉じる' : '章をAIで修正'}
+                    </button>
+                    {lastApplied?.chapterId === activeChapter.id && (
+                      <button className="btn btn-sm" onClick={undoRewrite}>
+                        リライトを元に戻す
+                      </button>
+                    )}
                   </div>
+                  <AnimatePresence>
+                    {showRewrite && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        style={{
+                          overflow: 'hidden',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        <div
+                          style={{
+                            padding: '14px 20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 10,
+                          }}
+                        >
+                          <div className="row wrap" style={{ gap: 10, alignItems: 'center' }}>
+                            <select
+                              className="input"
+                              style={{ width: 'auto' }}
+                              value={rewriteKey}
+                              onChange={(e) => {
+                                setRewriteKey(e.target.value);
+                                setRewritePreview(null);
+                              }}
+                            >
+                              {REWRITE_INSTRUCTIONS.map((r) => (
+                                <option key={r.key} value={r.key}>
+                                  {r.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button className="btn btn-sm" onClick={generateRewritePreview}>
+                              プレビューを生成
+                            </button>
+                            {rewritePreview !== null && (
+                              <button className="btn btn-sm" onClick={retryRewritePreview}>
+                                別の候補を試す
+                              </button>
+                            )}
+                          </div>
+                          <p className="hint" style={{ margin: 0 }}>
+                            {
+                              REWRITE_INSTRUCTIONS.find((r) => r.key === rewriteKey)
+                                ?.description
+                            }
+                            　外部AIは使わず、端末内のルールだけで本文を調整します（通信は発生しません）。反映前に必ず内容を確認してください。
+                          </p>
+                          {rewritePreview !== null && (
+                            <>
+                              <div className="rewrite-preview">
+                                {rewritePreview || '（本文がありません）'}
+                              </div>
+                              <div className="row" style={{ gap: 10 }}>
+                                <button
+                                  className="btn btn-sm btn-primary"
+                                  onClick={applyRewritePreview}
+                                >
+                                  この内容を反映する
+                                </button>
+                                <button className="btn btn-sm" onClick={discardRewritePreview}>
+                                  破棄
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   <AnimatePresence>
                     {showMemo && (
                       <motion.div

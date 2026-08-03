@@ -618,6 +618,21 @@ select.input {
   color: var(--text-h);
 }
 
+.rewrite-preview {
+  width: 100%;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.8;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--accent);
+  background: var(--bg-sunken);
+  color: var(--text-h);
+}
+
 .progress-bar {
   height: 6px;
   border-radius: 999px;
