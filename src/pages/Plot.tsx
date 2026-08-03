@@ -12,6 +12,7 @@ import {
   FOUR_ACT_TARGET_CHARS_PER_ACT,
   type FourActDraft,
 } from '../lib/draftGenerator';
+import { loadPhraseHistory, recordPhraseUsage } from '../lib/phraseHistory';
 import { countChars } from '../lib/textStats';
 
 const STATUSES: { key: PlotStatus; label: string }[] = [
@@ -77,7 +78,11 @@ export default function Plot() {
       return;
     }
     setVariation(nextVariation);
-    setDraft(generateFourActDraft(novel!, nextVariation));
+    loadPhraseHistory().then((avoid) => {
+      const result = generateFourActDraft(novel!, nextVariation, avoid);
+      setDraft(result.draft);
+      void recordPhraseUsage(result.usedTemplates);
+    });
     setApplied(false);
   }
 

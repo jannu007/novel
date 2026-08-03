@@ -23,6 +23,14 @@ export function pick<T>(rng: () => number, arr: T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
+// テンプレート文字列中の {token} を tokens[token] に置き換える。
+// 該当キーが無ければそのまま残す（トークンの綴りミスに気づきやすくするため）。
+export function fillTemplate(template: string, tokens: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
+    key in tokens ? tokens[key] : match
+  );
+}
+
 /**
  * シャッフルバッグ：候補を毎回シャッフルして1巡し切ってから
  * 次の巡目に入るため、同じ要素が近い間隔で繰り返し出にくくなる

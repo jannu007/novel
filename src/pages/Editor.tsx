@@ -7,6 +7,7 @@ import { useNovel } from '../lib/useNovel';
 import type { Chapter } from '../types';
 import { countChars, countNovelChars, todayStr } from '../lib/textStats';
 import { REWRITE_INSTRUCTIONS, applyRewriteInstruction } from '../lib/rewriteEngine';
+import { loadPhraseHistory, recordPhraseUsage } from '../lib/phraseHistory';
 
 export default function Editor() {
   const { id } = useParams();
@@ -18,6 +19,8 @@ export default function Editor() {
   const [rewriteKey, setRewriteKey] = useState(REWRITE_INSTRUCTIONS[0].key);
   const [rewriteSeed, setRewriteSeed] = useState(0);
   const [rewritePreview, setRewritePreview] = useState<string | null>(null);
+  const [rewriteAvoid, setRewriteAvoid] = useState<Set<string>>(new Set());
+  const [pendingUsedTemplates, setPendingUsedTemplates] = useState<string[]>([]);
   const [lastApplied, setLastApplied] = useState<{
     chapterId: string;
     previousContent: string;
@@ -25,7 +28,12 @@ export default function Editor() {
   const appliedInitialChapter = useRef(false);
 
   useEffect(() => {
+    loadPhraseHistory().then(setRewriteAvoid);
+  }, []);
+
+  useEffect(() => {
     setRewritePreview(null);
+    setPendingUsedTemplates([]);
     setRewriteSeed(0);
   }, [activeChapterId]);
 
@@ -96,29 +104,47 @@ export default function Editor() {
 
   function generateRewritePreview() {
     if (!activeChapter) return;
-    setRewritePreview(
-      applyRewriteInstruction(activeChapter.content, rewriteKey, novel!, rewriteSeed)
+    const result = applyRewriteInstruction(
+      activeChapter.content,
+      rewriteKey,
+      novel!,
+      rewriteSeed,
+      rewriteAvoid
     );
+    setRewritePreview(result.text);
+    setPendingUsedTemplates(result.usedTemplates);
   }
 
   function retryRewritePreview() {
     if (!activeChapter) return;
     const nextSeed = rewriteSeed + 1;
     setRewriteSeed(nextSeed);
-    setRewritePreview(
-      applyRewriteInstruction(activeChapter.content, rewriteKey, novel!, nextSeed)
+    const result = applyRewriteInstruction(
+      activeChapter.content,
+      rewriteKey,
+      novel!,
+      nextSeed,
+      rewriteAvoid
     );
+    setRewritePreview(result.text);
+    setPendingUsedTemplates(result.usedTemplates);
   }
 
   function applyRewritePreview() {
     if (!activeChapter || rewritePreview === null) return;
     setLastApplied({ chapterId: activeChapter.id, previousContent: activeChapter.content });
     patchChapter(activeChapter.id, { content: rewritePreview });
+    if (pendingUsedTemplates.length > 0) {
+      void recordPhraseUsage(pendingUsedTemplates);
+      setRewriteAvoid((prev) => new Set([...prev, ...pendingUsedTemplates]));
+    }
     setRewritePreview(null);
+    setPendingUsedTemplates([]);
   }
 
   function discardRewritePreview() {
     setRewritePreview(null);
+    setPendingUsedTemplates([]);
   }
 
   function undoRewrite() {

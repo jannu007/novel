@@ -1,9 +1,14 @@
 import type { Novel } from '../types';
-import { hashString, mulberry32, pick } from './prng';
+import { hashString, mulberry32, pick, fillTemplate } from './prng';
+import { preferUnused } from './phraseHistory';
 
 // 章の本文に対して「指示メニュー」を選ぶと、端末内のルールベース処理だけで
 // 本文へ描写・会話・緊張感などを補ったり、余分な言い回しを整理したりする。
 // 外部の生成AIは一切呼び出さず、通信も発生しない（起承転結の下書き生成と同じ方針）。
+//
+// 各カテゴリのフレーズは {p}（主人公名）・{o}（相手役の名）を含むテンプレートとして
+// 持ち、選んだテンプレート（置換前の文字列）を phraseHistory.ts に記録することで、
+// 作品をまたいだ言い回しの重複を減らせるようにしている。
 
 export interface RewriteInstruction {
   key: string;
@@ -52,6 +57,30 @@ const SCENERY_SENTENCES = [
   '柔らかな風が、カーテンをそっと揺らした。',
   'どこか遠くで、聞き慣れない音が鳴った気がした。',
   '埃っぽい光が、部屋の隅まで届いていた。',
+  '遠くの鳥の声が、静けさに彩りを添えていた。',
+  '光と影の境目が、いつのまにかぼやけていた。',
+  '壁時計の秒針の音だけが、やけに大きく響いていた。',
+  '窓の外の木々が、風に合わせて静かに揺れていた。',
+  '遠くの車の音が、波のように寄せては引いていった。',
+  '部屋の隅に溜まった埃が、光の筋に浮かび上がっていた。',
+  '曇りガラス越しの景色が、ぼんやりと滲んで見えた。',
+  '遠くの空が、じわりと色を変え始めていた。',
+  '床板のきしむ音が、静寂の中でやけに響いた。',
+  '開いたままの窓から、遠くの匂いが流れ込んできた。',
+  '灯りの届かない部屋の隅に、影がじっと佇んでいた。',
+  '雨粒が窓を叩く音が、規則正しく続いていた。',
+  '遠くの踏切の音が、風に乗って微かに届いた。',
+  '陽だまりの中で、埃がゆっくりと舞っていた。',
+  '静かな部屋に、時折り軋む床の音だけが響いた。',
+  '遠くの雲が、ゆっくりと形を変えながら流れていった。',
+  'カーテン越しの光が、部屋全体を淡く染めていた。',
+  '誰もいない廊下に、足音の残響だけが漂っていた。',
+  '遠くの喧騒が、まるで別世界のことのように感じられた。',
+  '窓辺に置かれた花が、静かに香りを漂わせていた。',
+  '夕暮れの色が、部屋の壁をゆっくりと染めていった。',
+  '冷たい空気が、肌に微かに触れていった。',
+  'どこか遠くで、犬の鳴き声が短く響いた。',
+  '静まり返った部屋に、呼吸の音だけが響いていた。',
 ];
 
 const EMOTION_TEMPLATES = [
@@ -63,6 +92,26 @@ const EMOTION_TEMPLATES = [
   '胸の奥に沈めていた思いが、ふいに顔を出した。',
   '{p}は、自分でも気づかぬうちに息を止めていた。',
   '説明のつかない胸騒ぎを、{p}は誰にも言えずにいた。',
+  '{p}は、うまく言葉にできない感情を持て余していた。',
+  '心の奥に押し込めていた不安が、静かに顔を出した。',
+  '{p}は、自分の気持ちに戸惑いを隠せずにいた。',
+  '何かが引っかかるような感覚を、{p}は拭えずにいた。',
+  '{p}の中で、期待と不安が入り混じっていた。',
+  '表には出さないものの、{p}の心は揺れ動いていた。',
+  '{p}は、誰にも気づかれないよう静かに息を吐いた。',
+  '言葉にならない想いが、{p}の胸の中で渦を巻いていた。',
+  '{p}は、その感情の正体をまだ掴みかねていた。',
+  'ふとした瞬間、{p}の心に小さな影がよぎった。',
+  '{p}は、平静を装いながらも内心穏やかではなかった。',
+  '込み上げる感情を、{p}はどうにか飲み込んだ。',
+  '{p}の胸には、言い表せない重さが残っていた。',
+  '誰にも打ち明けられない不安を、{p}はそっと抱えていた。',
+  '{p}は、自分でも驚くほど心が乱れているのを感じた。',
+  'その感情に、{p}はまだ名前をつけられずにいた。',
+  '{p}の心の奥底で、小さな炎が静かに揺れていた。',
+  '言葉にすれば崩れてしまいそうで、{p}は黙っていた。',
+  '{p}は、込み上げる思いをそっと胸にしまい込んだ。',
+  'その一瞬、{p}の表情がわずかに揺らいだ。',
 ];
 
 const DIALOGUE_LINES = [
@@ -74,6 +123,22 @@ const DIALOGUE_LINES = [
   '「そんな顔しないで。」',
   '「これから、どうするつもり？」',
   '「大丈夫、ちゃんとそばにいるから。」',
+  '「――ねえ、聞こえてる？」',
+  '「それ、本気で言ってるの？」',
+  '「別に、たいしたことじゃないから。」',
+  '「もう少しだけ、そばにいてくれない？」',
+  '「どうして、そんな顔をするの？」',
+  '「今更、後戻りなんてできないよ。」',
+  '「大丈夫、ちゃんと分かってるから。」',
+  '「これで、良かったのかな。」',
+  '「ずっと、言えなかったことがあるんだ。」',
+  '「信じてくれるって、約束できる？」',
+  '「一人で抱え込まないで。」',
+  '「本当のことを、話してくれない？」',
+  '「そんなに、思い詰めないで。」',
+  '「もう、隠さなくていいんだよ。」',
+  '「これから、どうしていけばいいんだろう。」',
+  '「ここにいるから、大丈夫。」',
 ];
 
 const DIALOGUE_ATTRIBUTIONS = [
@@ -82,6 +147,19 @@ const DIALOGUE_ATTRIBUTIONS = [
   '{p}は、その言葉に小さくうなずいた。',
   '沈黙のあと、{o}がぽつりとつぶやいた。',
   '{p}は、すぐには答えられなかった。',
+  '{o}は、そう言って静かに目を伏せた。',
+  '{p}は、しばらく黙ったまま考え込んでいた。',
+  '{o}の言葉に、{p}は小さく息をのんだ。',
+  'その声には、いつもと違う響きがあった。',
+  '{p}は、{o}の顔を見つめたまま言葉を探した。',
+  '{o}は、少し困ったように笑ってみせた。',
+  '静かな声で、{o}はそうつぶやいた。',
+  '{p}の返事を、{o}はじっと待っていた。',
+  '{o}は、それ以上何も言わなかった。',
+  '{p}は、ようやく小さな声で答えた。',
+  'その一言に、{p}の心は揺れ動いた。',
+  '{o}は、いつもより優しい声でそう言った。',
+  '{p}は、黙って小さくうなずくことしかできなかった。',
 ];
 
 const TENSION_SENTENCES = [
@@ -93,6 +171,26 @@ const TENSION_SENTENCES = [
   '鼓動が、いつもより速く感じられた。',
   '静けさの中に、不穏な気配だけが漂っていた。',
   '{p}の中で、何かが確かに変わろうとしていた。',
+  '{p}の背筋に、冷たいものが走った。',
+  '何かが起こる予感に、場の空気が張り詰めていく。',
+  '{p}の心臓が、いつもより速く脈打っていた。',
+  '静寂の中に、確かな緊張感が広がっていた。',
+  '{p}は、逃げ出したい衝動をどうにか抑え込んだ。',
+  '次の瞬間に何が起こるか、誰にも予想できなかった。',
+  '{p}の指先が、かすかに震えていた。',
+  '不穏な気配が、じわじわとその場を包んでいった。',
+  '{p}は、息を潜めてその瞬間を待った。',
+  '何かが崩れ落ちる予兆が、確かにそこにあった。',
+  '{p}の頭の中で、警鐘が鳴り響いていた。',
+  '張り詰めた糸が、今にも切れそうだった。',
+  '{p}は、逃れられない何かを感じ取っていた。',
+  'その場の誰もが、息をするのも忘れていた。',
+  '{p}の中で、恐れと覚悟がせめぎ合っていた。',
+  '静かな緊張が、その場全体を支配していた。',
+  '{p}は、迫りくる何かにただ身構えるしかなかった。',
+  '一瞬の静寂が、次の嵐を予感させた。',
+  '{p}の胸に、抑えきれない不安が押し寄せていた。',
+  '誰もが、この先の展開を息をのんで見守っていた。',
 ];
 
 // 単独行としてよく紛れ込みがちな、それ自体には意味を持たないつなぎ言葉。
@@ -123,8 +221,24 @@ function buildRewriteCtx(novel: Novel): RewriteCtx {
   };
 }
 
-function fillTemplate(template: string, ctx: RewriteCtx): string {
-  return template.replace(/\{p\}/g, ctx.protagonist).replace(/\{o\}/g, ctx.other ?? '相手');
+function tokensFor(ctx: RewriteCtx): Record<string, string> {
+  return { p: ctx.protagonist, o: ctx.other ?? '相手' };
+}
+
+/**
+ * まだ作品をまたいで使っていないテンプレートを優先して1件選び、
+ * 選んだテンプレート（置換前の文字列）を usedThisRun に記録する。
+ */
+function pickTemplate(
+  rng: () => number,
+  candidates: string[],
+  avoid: Set<string>,
+  usedThisRun: Set<string>
+): string {
+  const pool = preferUnused(candidates, avoid, (t) => t);
+  const chosen = pick(rng, pool);
+  usedThisRun.add(chosen);
+  return chosen;
 }
 
 /**
@@ -142,11 +256,7 @@ function insertAfterParagraphs(
   let inserted = 0;
   for (const line of lines) {
     out.push(line);
-    if (
-      line.trim() !== '' &&
-      inserted < maxInsertions &&
-      rng() < rate
-    ) {
+    if (line.trim() !== '' && inserted < maxInsertions && rng() < rate) {
       out.push(...genLines());
       inserted++;
     }
@@ -154,23 +264,44 @@ function insertAfterParagraphs(
   return out.join('\n');
 }
 
-function addScenery(content: string, rng: () => number): string {
-  const lines = content.split(/\r?\n/);
-  return insertAfterParagraphs(lines, rng, 0.35, 6, () => [pick(rng, SCENERY_SENTENCES)]);
-}
-
-function addEmotion(content: string, rng: () => number, ctx: RewriteCtx): string {
+function addScenery(
+  content: string,
+  rng: () => number,
+  avoid: Set<string>,
+  usedThisRun: Set<string>
+): string {
   const lines = content.split(/\r?\n/);
   return insertAfterParagraphs(lines, rng, 0.35, 6, () => [
-    fillTemplate(pick(rng, EMOTION_TEMPLATES), ctx),
+    pickTemplate(rng, SCENERY_SENTENCES, avoid, usedThisRun),
   ]);
 }
 
-function addDialogue(content: string, rng: () => number, ctx: RewriteCtx): string {
+function addEmotion(
+  content: string,
+  rng: () => number,
+  ctx: RewriteCtx,
+  avoid: Set<string>,
+  usedThisRun: Set<string>
+): string {
   const lines = content.split(/\r?\n/);
+  const tokens = tokensFor(ctx);
+  return insertAfterParagraphs(lines, rng, 0.35, 6, () => [
+    fillTemplate(pickTemplate(rng, EMOTION_TEMPLATES, avoid, usedThisRun), tokens),
+  ]);
+}
+
+function addDialogue(
+  content: string,
+  rng: () => number,
+  ctx: RewriteCtx,
+  avoid: Set<string>,
+  usedThisRun: Set<string>
+): string {
+  const lines = content.split(/\r?\n/);
+  const tokens = tokensFor(ctx);
   return insertAfterParagraphs(lines, rng, 0.3, 5, () => [
-    pick(rng, DIALOGUE_LINES),
-    fillTemplate(pick(rng, DIALOGUE_ATTRIBUTIONS), ctx),
+    pickTemplate(rng, DIALOGUE_LINES, avoid, usedThisRun),
+    fillTemplate(pickTemplate(rng, DIALOGUE_ATTRIBUTIONS, avoid, usedThisRun), tokens),
   ]);
 }
 
@@ -178,8 +309,15 @@ function addDialogue(content: string, rng: () => number, ctx: RewriteCtx): strin
  * 終盤（本文行の後半3分の1）に絞って緊迫感を高める一文を差し込む。
  * 該当する行が全くない極端に短い章では、最後に1文だけ追加する。
  */
-function raiseTension(content: string, rng: () => number, ctx: RewriteCtx): string {
+function raiseTension(
+  content: string,
+  rng: () => number,
+  ctx: RewriteCtx,
+  avoid: Set<string>,
+  usedThisRun: Set<string>
+): string {
   const lines = content.split(/\r?\n/);
+  const tokens = tokensFor(ctx);
   const nonBlankIdx = lines
     .map((l, i) => (l.trim() !== '' ? i : -1))
     .filter((i) => i >= 0);
@@ -190,12 +328,12 @@ function raiseTension(content: string, rng: () => number, ctx: RewriteCtx): stri
   lines.forEach((line, i) => {
     out.push(line);
     if (line.trim() !== '' && i >= cutoff && inserted < 4 && rng() < 0.5) {
-      out.push(fillTemplate(pick(rng, TENSION_SENTENCES), ctx));
+      out.push(fillTemplate(pickTemplate(rng, TENSION_SENTENCES, avoid, usedThisRun), tokens));
       inserted++;
     }
   });
   if (inserted === 0) {
-    out.push(fillTemplate(pick(rng, TENSION_SENTENCES), ctx));
+    out.push(fillTemplate(pickTemplate(rng, TENSION_SENTENCES, avoid, usedThisRun), tokens));
   }
   return out.join('\n');
 }
@@ -226,27 +364,45 @@ function tighten(content: string): string {
   return out.join('\n');
 }
 
+export interface RewriteResult {
+  text: string;
+  usedTemplates: string[];
+}
+
+/**
+ * @param avoid 作品をまたいで既に使ったテンプレート集合（phraseHistory.ts）。
+ *   指定すると、まだ使っていないフレーズを優先して選ぶ。
+ */
 export function applyRewriteInstruction(
   content: string,
   instructionKey: string,
   novel: Novel,
-  seedExtra = 0
-): string {
+  seedExtra = 0,
+  avoid: Set<string> = new Set()
+): RewriteResult {
   const ctx = buildRewriteCtx(novel);
   const seed = hashString(`${novel.id}::${instructionKey}::${seedExtra}::${content.length}`);
   const rng = mulberry32(seed);
+  const usedThisRun = new Set<string>();
+  let text: string;
   switch (instructionKey) {
     case 'scenery':
-      return addScenery(content, rng);
+      text = addScenery(content, rng, avoid, usedThisRun);
+      break;
     case 'emotion':
-      return addEmotion(content, rng, ctx);
+      text = addEmotion(content, rng, ctx, avoid, usedThisRun);
+      break;
     case 'dialogue':
-      return addDialogue(content, rng, ctx);
+      text = addDialogue(content, rng, ctx, avoid, usedThisRun);
+      break;
     case 'tension':
-      return raiseTension(content, rng, ctx);
+      text = raiseTension(content, rng, ctx, avoid, usedThisRun);
+      break;
     case 'tighten':
-      return tighten(content);
+      text = tighten(content);
+      break;
     default:
-      return content;
+      text = content;
   }
+  return { text, usedTemplates: Array.from(usedThisRun) };
 }
