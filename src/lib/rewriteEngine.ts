@@ -1,6 +1,7 @@
 import type { Novel } from '../types';
 import { hashString, mulberry32, pick, fillTemplate } from './prng';
 import { preferUnused } from './phraseHistory';
+import { fallbackName } from './fallbackNames';
 
 // 章の本文に対して「指示メニュー」を選ぶと、端末内のルールベース処理だけで
 // 本文へ描写・会話・緊張感などを補ったり、余分な言い回しを整理したりする。
@@ -215,8 +216,11 @@ function buildRewriteCtx(novel: Novel): RewriteCtx {
   const otherChar = novel.characters.find(
     (c) => c.id !== protagonistChar?.id && c.name
   );
+  // 主人公キャラクターが未登録でも、本文の主語が「主人公」という
+  // 一般名詞のままにならないよう、作品ごとに決定的な人名を割り当てる。
+  const protagonist = protagonistChar?.name || fallbackName(`${novel.id}:protagonist`);
   return {
-    protagonist: protagonistChar?.name || '主人公',
+    protagonist,
     other: otherChar?.name || null,
   };
 }
