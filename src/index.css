@@ -590,6 +590,13 @@ select.input {
   background: var(--bg-sunken);
 }
 
+.manuscript-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .manuscript {
   flex: 1;
   border: none;
@@ -602,6 +609,22 @@ select.input {
   color: var(--text-h);
   outline: none;
   min-height: 0;
+}
+
+.manuscript-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+}
+
+.fullscreen-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-soft);
+  padding: 8px 0 2px;
+  opacity: 0.7;
+  user-select: none;
 }
 
 .editor-statusbar {

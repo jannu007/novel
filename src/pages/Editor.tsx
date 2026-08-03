@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import TopBar from '../components/TopBar';
@@ -25,7 +26,10 @@ export default function Editor() {
     chapterId: string;
     previousContent: string;
   } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const appliedInitialChapter = useRef(false);
+  const manuscriptRef = useRef<HTMLTextAreaElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
 
   useEffect(() => {
     loadPhraseHistory().then(setRewriteAvoid);
@@ -35,6 +39,7 @@ export default function Editor() {
     setRewritePreview(null);
     setPendingUsedTemplates([]);
     setRewriteSeed(0);
+    setIsFullscreen(false);
   }, [activeChapterId]);
 
   const chapters = useMemo(
@@ -100,6 +105,37 @@ export default function Editor() {
         c.id === chapterId ? { ...c, ...patch, updatedAt: Date.now() } : c
       ),
     }));
+  }
+
+  // 文章欄の表示範囲が狭い問題への対策：本文が最後（または最初）まで
+  // スクロールされた状態からさらに上/下へスワイプしたときだけ全画面表示を
+  // 切り替える。この境界チェックにより、本文を読むための通常のスクロールと
+  // ジェスチャーが競合しないようにしている。
+  function handleManuscriptTouchStart(e: React.TouchEvent<HTMLTextAreaElement>) {
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
+  }
+
+  function handleManuscriptTouchEnd(e: React.TouchEvent<HTMLTextAreaElement>) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    const el = manuscriptRef.current;
+    if (!start || !el) return;
+    const touch = e.changedTouches[0];
+    const deltaY = touch.clientY - start.y;
+    const deltaX = touch.clientX - start.x;
+    const deltaT = Date.now() - start.t;
+    if (deltaT > 700) return;
+    if (Math.abs(deltaY) < 60) return;
+    if (Math.abs(deltaY) < Math.abs(deltaX) * 1.5) return;
+
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+    const atTop = el.scrollTop <= 4;
+    if (deltaY < 0 && !isFullscreen && atBottom) {
+      setIsFullscreen(true);
+    } else if (deltaY > 0 && isFullscreen && atTop) {
+      setIsFullscreen(false);
+    }
   }
 
   function generateRewritePreview() {
@@ -204,8 +240,11 @@ export default function Editor() {
   return (
     <div className="app-shell">
       <div className="app-main">
-        <TopBar novelId={novel.id} novelTitle={novel.title} activeTab="write" />
+        {!isFullscreen && (
+          <TopBar novelId={novel.id} novelTitle={novel.title} activeTab="write" />
+        )}
         <div className="editor-shell">
+          {!isFullscreen && (
           <aside className="chapter-sidebar">
             <ul className="chapter-list">
               {chapters.map((c, i) => (
@@ -262,6 +301,7 @@ export default function Editor() {
               </button>
             </div>
           </aside>
+          )}
 
           <div className="editor-main">
             <AnimatePresence mode="wait">
@@ -279,6 +319,7 @@ export default function Editor() {
                     minHeight: 0,
                   }}
                 >
+                  {!isFullscreen && (
                   <div className="editor-toolbar">
                     <input
                       className="chapter-title"
@@ -306,6 +347,8 @@ export default function Editor() {
                       </button>
                     )}
                   </div>
+                  )}
+                  {!isFullscreen && (
                   <AnimatePresence>
                     {showRewrite && (
                       <motion.div
@@ -380,6 +423,8 @@ export default function Editor() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                  )}
+                  {!isFullscreen && (
                   <AnimatePresence>
                     {showMemo && (
                       <motion.div
@@ -406,15 +451,44 @@ export default function Editor() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  <textarea
-                    className="manuscript"
-                    value={activeChapter.content}
-                    onChange={(e) =>
-                      patchChapter(activeChapter.id, { content: e.target.value })
-                    }
-                    placeholder="ここから物語を書き始めましょう…"
-                    spellCheck={false}
-                  />
+                  )}
+                  {!isFullscreen && (
+                    <div className="manuscript-wrap">
+                      <textarea
+                        ref={manuscriptRef}
+                        className="manuscript"
+                        value={activeChapter.content}
+                        onChange={(e) =>
+                          patchChapter(activeChapter.id, { content: e.target.value })
+                        }
+                        onTouchStart={handleManuscriptTouchStart}
+                        onTouchEnd={handleManuscriptTouchEnd}
+                        placeholder="ここから物語を書き始めましょう…"
+                        spellCheck={false}
+                      />
+                    </div>
+                  )}
+                  {isFullscreen &&
+                    createPortal(
+                      <div className="manuscript-wrap manuscript-fullscreen">
+                        <div className="fullscreen-hint">上から下にスワイプで戻る</div>
+                        <textarea
+                          ref={manuscriptRef}
+                          className="manuscript"
+                          value={activeChapter.content}
+                          onChange={(e) =>
+                            patchChapter(activeChapter.id, { content: e.target.value })
+                          }
+                          onTouchStart={handleManuscriptTouchStart}
+                          onTouchEnd={handleManuscriptTouchEnd}
+                          placeholder="ここから物語を書き始めましょう…"
+                          spellCheck={false}
+                          autoFocus
+                        />
+                      </div>,
+                      document.body
+                    )}
+                  {!isFullscreen && (
                   <div className="editor-statusbar">
                     <span>
                       この章: <strong>{countChars(activeChapter.content).toLocaleString()}</strong> 文字
@@ -469,6 +543,7 @@ export default function Editor() {
                       </AnimatePresence>
                     </span>
                   </div>
+                  )}
                 </motion.div>
               ) : (
                 <motion.div
