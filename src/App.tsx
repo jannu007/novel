@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
 import Characters from './pages/Characters';
 import Plot from './pages/Plot';
+import Polish from './pages/Polish';
 import Export from './pages/Export';
 import Guide from './pages/Guide';
 import PrintPreview from './pages/PrintPreview';
@@ -22,6 +23,7 @@ export default function App() {
           element={<PageTransition><Characters /></PageTransition>}
         />
         <Route path="/novel/:id/plot" element={<PageTransition><Plot /></PageTransition>} />
+        <Route path="/novel/:id/polish" element={<PageTransition><Polish /></PageTransition>} />
         <Route path="/novel/:id/export" element={<PageTransition><Export /></PageTransition>} />
         <Route path="/novel/:id/print" element={<PrintPreview />} />
         <Route path="/novel/:id/read" element={<Reader />} />

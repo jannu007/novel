@@ -1,3 +1,5 @@
+import { inlineToHtml } from './inlineMarkup';
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -10,6 +12,7 @@ export function escapeHtml(s: string): string {
 /**
  * 本文プレーンテキストを段落HTMLに変換する。
  * 空行が挟まれると、シーン区切り（＊）を自動的に挿入する。
+ * ルビ・傍点記法は `<ruby>` / `<em class="boten">` に展開する。
  */
 export function contentToParagraphs(content: string): string[] {
   const lines = content.split(/\r?\n/);
@@ -24,7 +27,7 @@ export function contentToParagraphs(content: string): string[] {
       html.push('<p class="scene-break">＊</p>');
     }
     blankRun = 0;
-    html.push(`<p>${escapeHtml(line)}</p>`);
+    html.push(`<p>${inlineToHtml(line, { escape: escapeHtml, withRp: true })}</p>`);
   }
   return html;
 }
