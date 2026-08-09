@@ -44,6 +44,25 @@ p.scene-break {
 p.no-indent {
   text-indent: 0;
 }
+ruby {
+  ruby-align: center;
+}
+rt {
+  font-size: 0.5em;
+  line-height: 1;
+  text-emphasis: none;
+}
+/* rp（ルビ非対応ビューア向けの括弧）は、対応ビューアでは隠す */
+rp {
+  display: none;
+}
+em.boten {
+  font-style: normal;
+  font-weight: inherit;
+  -epub-text-emphasis: filled sesame;
+  -webkit-text-emphasis: filled sesame;
+  text-emphasis: filled sesame;
+}
 img.cover-image {
   display: block;
   width: 100%;

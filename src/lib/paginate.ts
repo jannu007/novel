@@ -1,7 +1,11 @@
+import { inlineSafeBoundaries, inlineToHtml } from './inlineMarkup';
+import { escapeHtml } from './htmlContent';
+
 /**
- * 章本文を縦書きリーダー用のプレーンテキストに変換する。
+ * 章本文を縦書きリーダー用のテキストに変換する。
  * 改行は強制的な段区切りにはせず、全角スペースの字下げで
  * 連続した縦書きの流れに変換する（実際の書籍の組版に近い見た目にするため）。
+ * ルビ・傍点の記法はそのまま残し、表示時にHTMLへ展開する。
  */
 export function toReadableText(content: string): string {
   const lines = content.split(/\r?\n/);
@@ -23,8 +27,13 @@ export function toReadableText(content: string): string {
   return joined || '　（本文がありません）';
 }
 
+/** リーダーの1ページぶんのテキストを表示用HTMLに変換する。 */
+export function readableToHtml(text: string): string {
+  return inlineToHtml(text, { escape: escapeHtml });
+}
+
 function fits(el: HTMLElement, text: string, maxWidth: number): boolean {
-  el.textContent = text;
+  el.innerHTML = readableToHtml(text);
   return el.clientWidth <= maxWidth;
 }
 
@@ -35,6 +44,10 @@ function fits(el: HTMLElement, text: string, maxWidth: number): boolean {
  * 実際のページと合わせることで、この要素自身の内容幅(clientWidth)を
  * 「その文字数を1ページに収めるのに必要な幅」として利用できる。
  * フォントの実測に基づくため、文字数の見積もり計算より正確。
+ *
+ * ルビは親文字の横に組まれてページ幅を押し広げるので、測定でも記法を
+ * 展開したHTMLを流し込む。あわせて、ルビ・傍点の記法の途中で
+ * ページが切れないよう、分割位置を安全な境界まで戻している。
  */
 export function paginateVertical(
   el: HTMLElement,
@@ -43,7 +56,10 @@ export function paginateVertical(
 ): string[] {
   const pages: string[] = [];
   let remaining = text;
+  let offset = 0;
+  const safe = inlineSafeBoundaries(text);
   let guard = 0;
+
   while (remaining.length > 0 && guard < 1000) {
     guard++;
     if (fits(el, remaining, maxWidth)) {
@@ -63,9 +79,15 @@ export function paginateVertical(
       }
     }
     if (best === 0) best = 1; // 1文字も収まらない場合でも必ず前進する
-    pages.push(remaining.slice(0, best));
-    remaining = remaining.slice(best);
+    // 記法の内側で切れていたら、その手前の安全な位置まで戻す
+    let cut = best;
+    while (cut > 1 && !safe.has(offset + cut)) cut--;
+    // 長いルビが1ページに収まりきらない場合は、やむを得ず元の位置で切る
+    if (!safe.has(offset + cut)) cut = best;
+    pages.push(remaining.slice(0, cut));
+    remaining = remaining.slice(cut);
+    offset += cut;
   }
-  el.textContent = '';
+  el.innerHTML = '';
   return pages.length > 0 ? pages : [''];
 }

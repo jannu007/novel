@@ -7,13 +7,14 @@ interface Props {
   novelId?: string;
   novelTitle?: string;
   right?: ReactNode;
-  activeTab?: 'write' | 'characters' | 'plot' | 'export';
+  activeTab?: 'write' | 'characters' | 'plot' | 'polish' | 'export';
 }
 
 const TABS: { key: NonNullable<Props['activeTab']>; label: string; path: (id: string) => string }[] = [
   { key: 'characters', label: 'キャラクター', path: (id) => `/novel/${id}/characters` },
   { key: 'plot', label: 'プロット', path: (id) => `/novel/${id}/plot` },
   { key: 'write', label: '執筆', path: (id) => `/novel/${id}` },
+  { key: 'polish', label: '推敲', path: (id) => `/novel/${id}/polish` },
   { key: 'export', label: '出版準備', path: (id) => `/novel/${id}/export` },
 ];
 

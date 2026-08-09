@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { saveAs } from 'file-saver';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,6 +10,12 @@ import { generateTxt, generateBackupJson } from '../lib/txt';
 import { generateCoverImage } from '../lib/coverGenerator';
 import type { Novel, TrimSize } from '../types';
 import { TRIM_SIZES } from '../lib/trimSizes';
+import {
+  DEFAULT_ENABLED_RULES,
+  DEFAULT_MAX_SENTENCE_LENGTH,
+  proofreadText,
+  ruleSeverity,
+} from '../lib/proofreader';
 
 const gridVariants = {
   hidden: {},
@@ -36,6 +42,18 @@ export default function Export() {
   const [busy, setBusy] = useState<'epub' | 'docx' | 'cover' | null>(null);
   const [coverVariation, setCoverVariation] = useState(0);
 
+  // 出版前チェックリスト用に、校正の「要修正」件数だけを数える
+  const blockingIssues = useMemo(() => {
+    if (!novel) return 0;
+    return novel.chapters.reduce((sum, ch) => {
+      const issues = proofreadText(ch.content, {
+        enabled: DEFAULT_ENABLED_RULES,
+        maxSentenceLength: DEFAULT_MAX_SENTENCE_LENGTH,
+      });
+      return sum + issues.filter((i) => ruleSeverity(i.ruleId) === 'error').length;
+    }, 0);
+  }, [novel]);
+
   if (novel === undefined) return <div className="page">読み込み中…</div>;
   if (novel === null) {
     return (
@@ -56,6 +74,13 @@ export default function Export() {
     { ok: !!novel.synopsis.trim(), label: 'あらすじ（商品説明に使えます）が入力されている' },
     { ok: totalChars >= 5000, label: '本文が5,000文字以上ある（KDPの最低目安）' },
     { ok: emptyChapters === 0, label: '空の章がない' },
+    {
+      ok: blockingIssues === 0,
+      label:
+        blockingIssues === 0
+          ? '校正の「要修正」項目が残っていない'
+          : `校正の「要修正」項目が${blockingIssues}件残っている（推敲タブで確認）`,
+    },
   ];
 
   return (
@@ -335,9 +360,19 @@ export default function Export() {
               </motion.div>
               <motion.div className="card export-card" variants={cardVariants}>
                 <h3>📝 テキスト（TXT）</h3>
-                <p>プレーンテキストで書き出します。他の編集ソフトへの移行や下書き保管に便利です。</p>
-                <button className="btn btn-block" onClick={() => generateTxt(novel)}>
-                  .txt をダウンロード
+                <p>
+                  プレーンテキストで書き出します。他の編集ソフトへの移行や下書き保管に便利です。
+                  ルビ・傍点の記法を残したまま書き出せば、小説投稿サイトにもそのまま貼り付けられます。
+                </p>
+                <button className="btn btn-block" onClick={() => generateTxt(novel, true)}>
+                  .txt をダウンロード（ルビ記法あり）
+                </button>
+                <button
+                  className="btn btn-block"
+                  style={{ marginTop: 8 }}
+                  onClick={() => generateTxt(novel, false)}
+                >
+                  .txt をダウンロード（本文のみ）
                 </button>
               </motion.div>
               <motion.div className="card export-card" variants={cardVariants}>

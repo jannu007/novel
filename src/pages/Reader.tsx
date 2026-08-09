@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { useNovel } from '../lib/useNovel';
-import { toReadableText, paginateVertical } from '../lib/paginate';
+import { toReadableText, paginateVertical, readableToHtml } from '../lib/paginate';
 
 const pageVariants = {
   enter: (dir: number) => ({
@@ -171,9 +171,8 @@ export default function Reader() {
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={0.7}
                 onDragEnd={handleDragEnd}
-              >
-                {pages[pageIndex]}
-              </motion.div>
+                dangerouslySetInnerHTML={{ __html: readableToHtml(pages[pageIndex] ?? '') }}
+              />
             )}
           </AnimatePresence>
         </div>

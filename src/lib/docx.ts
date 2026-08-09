@@ -6,10 +6,75 @@ import {
   ImageRun,
   HeadingLevel,
   AlignmentType,
+  EmphasisMarkType,
+  ImportedXmlComponent,
+  type ParagraphChild,
 } from 'docx';
 import { saveAs } from 'file-saver';
 import type { Novel } from '../types';
 import { generateCoverImage, generateChapterIllustration } from './coverGenerator';
+import { parseInline } from './inlineMarkup';
+
+/** 本文の基準サイズ（half-point 単位。22 = 11pt） */
+const BODY_SIZE = 22;
+/** ルビの文字サイズ（親文字のおよそ半分） */
+const RUBY_SIZE = 11;
+
+/** OOXMLの要素を1つ組み立てる小さなヘルパー。 */
+function xml(
+  name: string,
+  attrs?: Record<string, string>,
+  children: (ImportedXmlComponent | string)[] = []
+): ImportedXmlComponent {
+  const node = new ImportedXmlComponent(name, attrs);
+  for (const child of children) node.push(child);
+  return node;
+}
+
+/** ルビ用・親文字用のラン（`w:r`）を作る。 */
+function sizedRun(text: string, size: number): ImportedXmlComponent {
+  return xml('w:r', undefined, [
+    xml('w:rPr', undefined, [xml('w:sz', { 'w:val': String(size) })]),
+    xml('w:t', { 'xml:space': 'preserve' }, [text]),
+  ]);
+}
+
+/**
+ * Wordのルビ（`w:ruby`）を組み立てる。
+ * docx ライブラリにはルビ専用のAPIがないため、OOXMLの要素を直接組み立てて
+ * 段落の子要素として差し込んでいる。Wordの「ルビ」機能で入力した場合と
+ * 同じ構造なので、Word上でそのまま編集できる。
+ */
+function rubyRun(base: string, ruby: string): ParagraphChild {
+  const node = xml('w:r', undefined, [
+    xml('w:ruby', undefined, [
+      xml('w:rubyPr', undefined, [
+        xml('w:rubyAlign', { 'w:val': 'distributeSpace' }),
+        xml('w:hps', { 'w:val': String(RUBY_SIZE) }),
+        xml('w:hpsRaise', { 'w:val': String(BODY_SIZE) }),
+        xml('w:hpsBaseText', { 'w:val': String(BODY_SIZE) }),
+        xml('w:lid', { 'w:val': 'ja-JP' }),
+      ]),
+      xml('w:rt', undefined, [sizedRun(ruby, RUBY_SIZE)]),
+      xml('w:rubyBase', undefined, [sizedRun(base, BODY_SIZE)]),
+    ]),
+  ]);
+  return node as unknown as ParagraphChild;
+}
+
+/** 1行ぶんのルビ・傍点記法をWordのランに変換する。 */
+function buildRuns(line: string): ParagraphChild[] {
+  return parseInline(line).map((token) => {
+    if (token.type === 'ruby') return rubyRun(token.base, token.ruby);
+    if (token.type === 'emphasis') {
+      return new TextRun({
+        text: token.text,
+        emphasisMark: { type: EmphasisMarkType.DOT },
+      });
+    }
+    return new TextRun(token.text);
+  });
+}
 
 function buildBodyParagraphs(content: string): Paragraph[] {
   const lines = content.split(/\r?\n/);
@@ -34,7 +99,7 @@ function buildBodyParagraphs(content: string): Paragraph[] {
       new Paragraph({
         indent: { firstLine: 240 },
         spacing: { line: 360 },
-        children: [new TextRun(line)],
+        children: buildRuns(line),
       })
     );
   }

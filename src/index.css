@@ -926,6 +926,25 @@ select.input {
   letter-spacing: 0.02em;
 }
 
+/* 縦書きリーダーのルビと傍点。測定用の要素にも同じ指定が効くよう、
+   .reader-text の子孫として定義している。 */
+.reader-text ruby {
+  ruby-align: center;
+}
+.reader-text rt {
+  font-size: 0.5em;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.reader-text rp {
+  display: none;
+}
+.reader-text em.boten {
+  font-style: normal;
+  -webkit-text-emphasis: filled sesame;
+  text-emphasis: filled sesame;
+}
+
 .reader-text-visible {
   position: absolute;
   inset: 0;
@@ -958,4 +977,293 @@ select.input {
   background: var(--bg-panel);
   flex-wrap: wrap;
   text-align: center;
+}
+
+/* ===================== 推敲・校正ページ ===================== */
+
+.polish-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.polish-actions {
+  gap: 10px;
+  align-items: center;
+}
+
+.polish-notice {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-bg);
+  color: var(--text-h);
+  font-size: 13px;
+}
+
+.polish-section h3 {
+  margin: 0 0 6px;
+}
+
+/* --- 品質の目安 --- */
+
+.polish-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.metric-score {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.score-ring {
+  --score-color: var(--accent);
+  width: 108px;
+  height: 108px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 4px solid var(--score-color);
+  background: var(--bg-panel);
+  color: var(--score-color);
+}
+
+.score-value {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-label {
+  font-size: 10px;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.score-summary {
+  flex: 1;
+  min-width: 220px;
+  font-size: 14px;
+}
+
+.metric-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 90px 110px;
+  gap: 6px 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.metric-row.warn {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.metric-label {
+  font-weight: 600;
+}
+
+.metric-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.metric-ideal,
+.metric-hint {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.metric-hint {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .metric-row {
+    grid-template-columns: 1fr auto;
+  }
+  .metric-ideal {
+    text-align: right;
+  }
+}
+
+/* --- チェック項目の設定 --- */
+
+.rule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.rule-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rule-item input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+/* --- バッジ・フィルターチップ --- */
+
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.badge-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.badge-warning {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.badge-info {
+  background: var(--bg-sunken);
+  color: var(--text-soft);
+}
+
+.badge-fix {
+  background: rgba(47, 158, 100, 0.14);
+  color: var(--success);
+}
+
+.filter-chips {
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-soft);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.chip:hover {
+  background: var(--accent-bg);
+}
+
+.chip.active {
+  background: var(--accent-gradient);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+
+/* --- 表記ゆれ --- */
+
+.variant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.variant-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+
+.variant-count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+/* --- 指摘一覧 --- */
+
+.issue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.issue-list li {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.issue-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.issue-excerpt {
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-sunken);
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.issue-excerpt .ctx {
+  color: var(--text-soft);
+}
+
+.issue-excerpt mark {
+  background: rgba(224, 90, 151, 0.24);
+  color: var(--text-h);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.issue-message {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-soft);
 }

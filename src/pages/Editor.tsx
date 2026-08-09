@@ -8,6 +8,7 @@ import { useNovel } from '../lib/useNovel';
 import type { Chapter } from '../types';
 import { countChars, countNovelChars, todayStr } from '../lib/textStats';
 import { REWRITE_INSTRUCTIONS, applyRewriteInstruction } from '../lib/rewriteEngine';
+import { insertRubyNotation, insertEmphasisNotation } from '../lib/inlineMarkup';
 import { loadPhraseHistory, recordPhraseUsage } from '../lib/phraseHistory';
 
 export default function Editor() {
@@ -136,6 +137,39 @@ export default function Editor() {
     } else if (deltaY > 0 && isFullscreen && atTop) {
       setIsFullscreen(false);
     }
+  }
+
+  /**
+   * 本文欄で選択している文字にルビ・傍点の記法を付ける。
+   * 記法はプレーンテキストとして本文に埋め込まれ、EPUB・DOCX・
+   * 印刷プレビュー・縦書きリーダーでそれぞれの体裁に展開される。
+   */
+  function insertMarkup(kind: 'ruby' | 'emphasis') {
+    const el = manuscriptRef.current;
+    if (!el || !activeChapter) return;
+    const { selectionStart: start, selectionEnd: end } = el;
+    if (start === end) {
+      alert(
+        kind === 'ruby'
+          ? 'ルビを振りたい文字を選択してから押してください。'
+          : '傍点を打ちたい文字を選択してから押してください。'
+      );
+      return;
+    }
+    let result;
+    if (kind === 'ruby') {
+      const reading = prompt('ふりがなを入力してください', '');
+      if (reading === null || reading.trim() === '') return;
+      result = insertRubyNotation(el.value, start, end, reading.trim());
+    } else {
+      result = insertEmphasisNotation(el.value, start, end);
+    }
+    patchChapter(activeChapter.id, { content: result.text });
+    // 本文の更新後にカーソル位置を復元する
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(result.selectionStart, result.selectionEnd);
+    });
   }
 
   function generateRewritePreview() {
@@ -329,6 +363,20 @@ export default function Editor() {
                       }
                       placeholder="章のタイトル"
                     />
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => insertMarkup('ruby')}
+                      title="選択した文字にふりがな（ルビ）を振る"
+                    >
+                      ルビ
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => insertMarkup('emphasis')}
+                      title="選択した文字に傍点を打つ"
+                    >
+                      傍点
+                    </button>
                     <button
                       className="btn btn-sm"
                       onClick={() => setShowMemo((s) => !s)}

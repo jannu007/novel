@@ -46,6 +46,13 @@ export default function PrintPreview() {
         }
         .print-page.cover-page { padding: 0; overflow: hidden; }
         .print-page p { margin: 0; text-indent: 1em; }
+        .print-page rt { font-size: 0.5em; line-height: 1; }
+        .print-page rp { display: none; }
+        .print-page em.boten {
+          font-style: normal;
+          -webkit-text-emphasis: filled sesame;
+          text-emphasis: filled sesame;
+        }
         .print-page p.scene-break { text-align: center; text-indent: 0; margin: 1.5em 0; }
         .print-page h1.book-title { text-align: center; margin-top: 30%; font-size: 22pt; }
         .print-page p.author { text-align: center; margin-top: 2em; }
