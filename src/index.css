@@ -611,6 +611,23 @@ select.input {
   min-height: 0;
 }
 
+/* 縦書き（右から左）。市販の日本語の本と同じ流れで書ける。
+   縦書きでは要素の「高さ」がそのまま1行の長さになるので、
+   親から高さが決まるようにしたうえで横スクロールさせる。 */
+.manuscript.tategaki {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 28px 22px;
+  line-height: 1.9;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.app-shell:has(.manuscript.tategaki) {
+  height: 100svh;
+  min-height: 0;
+}
+
 .manuscript-fullscreen {
   position: fixed;
   inset: 0;
