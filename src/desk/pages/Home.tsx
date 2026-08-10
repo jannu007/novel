@@ -5,7 +5,16 @@ import { createEmptyNovel, type Novel } from '../../types';
 import { countNovelChars } from '../../lib/textStats';
 import { useTheme, THEME_LABEL } from '../useTheme';
 import { Sheet } from '../components/Chrome';
-import { PlusIcon, ThemeIcon, TrashIcon } from '../components/Icons';
+import { PlusIcon, ThemeIcon, TrashIcon, ImageIcon } from '../components/Icons';
+import ImageEditor from '../components/ImageEditor';
+import {
+  COVER_ID,
+  loadCover,
+  saveCover,
+  deleteCover,
+  prepareImage,
+  type WorkImage,
+} from '../images';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -15,19 +24,88 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const { mode, setMode } = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
+  const coverFileRef = useRef<HTMLInputElement>(null);
+  /** 作品IDごとの表紙と、表示用の一時URL */
+  const [covers, setCovers] = useState<Map<string, { image: WorkImage; url: string }>>(
+    new Map()
+  );
+  /** 表紙を選ぶ・直す対象の作品 */
+  const [coverTarget, setCoverTarget] = useState<string | null>(null);
+  const [editingCover, setEditingCover] = useState<WorkImage | null>(null);
 
   useEffect(() => {
     void refresh();
   }, []);
 
   async function refresh() {
-    setWorks(await listWorks());
+    const list = await listWorks();
+    setWorks(list);
+    await refreshCovers(list);
+  }
+
+  /** 表紙を読み込み直す。前に作った一時URLは解放する。 */
+  async function refreshCovers(list: Novel[]) {
+    const loaded = await Promise.all(list.map((w) => loadCover(w.id)));
+    setCovers((prev) => {
+      for (const { url } of prev.values()) URL.revokeObjectURL(url);
+      const next = new Map<string, { image: WorkImage; url: string }>();
+      loaded.forEach((image, i) => {
+        if (image) next.set(list[i].id, { image, url: URL.createObjectURL(image.blob) });
+      });
+      return next;
+    });
   }
 
   async function create() {
     const work = createEmptyNovel(crypto.randomUUID(), title.trim() || '無題');
     await saveWork(work);
     navigate(`/w/${work.id}`);
+  }
+
+  /** 表紙の枠を押したとき。まだ無ければ画像を選び、あれば修正画面を開く。 */
+  function onCoverTap(work: Novel) {
+    const current = covers.get(work.id);
+    setCoverTarget(work.id);
+    if (current) setEditingCover(current.image);
+    else coverFileRef.current?.click();
+  }
+
+  async function pickCover(file: File) {
+    const workId = coverTarget;
+    if (!workId) return;
+    try {
+      const prepared = await prepareImage(file);
+      const image: WorkImage = {
+        id: COVER_ID,
+        workId,
+        mime: prepared.mime,
+        width: prepared.width,
+        height: prepared.height,
+        caption: '',
+        blob: prepared.blob,
+        createdAt: Date.now(),
+      };
+      await saveCover(image);
+      if (works) await refreshCovers(works);
+    } catch {
+      alert('この画像は読み込めませんでした。別の画像をお試しください。');
+    }
+  }
+
+  async function saveEditedCover(
+    image: WorkImage,
+    next: { blob: Blob; original: Blob; edit: WorkImage['edit']; width: number; height: number; mime: string }
+  ) {
+    await saveCover({ ...image, ...next });
+    if (works) await refreshCovers(works);
+  }
+
+  async function removeCover() {
+    if (!coverTarget) return;
+    if (!confirm('表紙を外します。')) return;
+    await deleteCover(coverTarget);
+    setEditingCover(null);
+    if (works) await refreshCovers(works);
   }
 
   async function remove(work: Novel) {
@@ -135,7 +213,26 @@ export default function Home() {
                 const pct = Math.min(100, Math.round((chars / target) * 100));
                 return (
                   <li className="work" key={w.id}>
-                    <div className="spine">{(w.title || '無題').slice(0, 8)}</div>
+                    <button
+                      className={`spine ${covers.has(w.id) ? 'has-cover' : ''}`}
+                      onClick={() => onCoverTap(w)}
+                      aria-label={covers.has(w.id) ? '表紙を直す' : '表紙をつける'}
+                      title={covers.has(w.id) ? '表紙を直す' : '表紙をつける'}
+                    >
+                      {covers.has(w.id) ? (
+                        <img src={covers.get(w.id)!.url} alt="" />
+                      ) : (
+                        <>
+                          <span className="spine-title">
+                            {(w.title || '無題').slice(0, 8)}
+                          </span>
+                          <span className="spine-add">
+                            <ImageIcon />
+                            表紙
+                          </span>
+                        </>
+                      )}
+                    </button>
                     <button className="main" onClick={() => navigate(`/w/${w.id}`)}>
                       <b>{w.title || '無題'}</b>
                       <div className="meta">
@@ -163,6 +260,33 @@ export default function Home() {
           </>
         )}
       </div>
+
+      <input
+        ref={coverFileRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void pickCover(file);
+          e.target.value = '';
+        }}
+      />
+
+      {editingCover && (
+        <Sheet title="表紙" onClose={() => setEditingCover(null)}>
+          <p className="muted" style={{ marginTop: 0 }}>
+            EPUB・Wordの表紙になります。Kindleで売るなら縦長（1:1.6）が推奨です。
+          </p>
+          <ImageEditor
+            image={editingCover}
+            mode="cover"
+            onSave={(next) => saveEditedCover(editingCover, next)}
+            onClose={() => setEditingCover(null)}
+            onRemove={() => void removeCover()}
+          />
+        </Sheet>
+      )}
 
       {showSettings && (
         <Sheet title="設定" onClose={() => setShowSettings(false)}>

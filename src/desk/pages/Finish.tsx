@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useWork } from '../useWork';
 import { AppBar, TabBar, NotFound } from '../components/Chrome';
@@ -12,23 +12,41 @@ import {
   ruleSeverity,
 } from '../../lib/proofreader';
 import type { Novel, TrimSize } from '../../types';
-import { listImages, toExportImages } from '../images';
+import { listImages, loadCover, toExportImage, toExportImages } from '../images';
 import type { ExportImage } from '../../lib/blockContent';
 
-async function exportEpub(work: Novel, images: Map<string, ExportImage>) {
+async function exportEpub(
+  work: Novel,
+  images: Map<string, ExportImage>,
+  cover?: ExportImage
+) {
   const { generateEpub } = await import('../../lib/epub');
-  await generateEpub(work, images);
+  await generateEpub(work, images, cover);
 }
 
-async function exportDocx(work: Novel, images: Map<string, ExportImage>) {
+async function exportDocx(
+  work: Novel,
+  images: Map<string, ExportImage>,
+  cover?: ExportImage
+) {
   const { generateDocx } = await import('../../lib/docx');
-  await generateDocx(work, images);
+  await generateDocx(work, images, cover);
 }
 
 export default function Finish() {
   const { id } = useParams();
   const { work, update, flush } = useWork(id);
   const [busy, setBusy] = useState<'epub' | 'docx' | null>(null);
+  const [hasCover, setHasCover] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    loadCover(id).then((c) => !cancelled && setHasCover(Boolean(c)));
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   // 出せる状態かどうかの確認に使う「要修正」の件数
   const blocking = useMemo(() => {
@@ -56,6 +74,10 @@ export default function Finish() {
     { ok: chars >= 5000, label: '本文が5,000字以上ある' },
     { ok: emptyChapters === 0, label: '空の章がない' },
     {
+      ok: hasCover,
+      label: hasCover ? '表紙をつけた' : '表紙をつける（作品一覧の左側から）',
+    },
+    {
       ok: blocking === 0,
       label:
         blocking === 0
@@ -70,8 +92,10 @@ export default function Finish() {
     try {
       await flush();
       const images = await toExportImages(await listImages(work!.id));
-      if (kind === 'epub') await exportEpub(work!, images);
-      else await exportDocx(work!, images);
+      const coverImage = await loadCover(work!.id);
+      const cover = coverImage ? await toExportImage(coverImage) : undefined;
+      if (kind === 'epub') await exportEpub(work!, images, cover);
+      else await exportDocx(work!, images, cover);
     } catch {
       alert('書き出しに失敗しました。もう一度お試しください。');
     } finally {

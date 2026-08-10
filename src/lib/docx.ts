@@ -149,10 +149,12 @@ function buildBodyParagraphs(
 
 /**
  * @param userImages 本文に ［画像:ID］ で差し込まれた挿絵。
+ * @param userCover 作者が用意した表紙。渡すと自動生成の表紙より優先する。
  */
 export async function generateDocx(
   novel: Novel,
-  userImages?: Map<string, ExportImage>
+  userImages?: Map<string, ExportImage>,
+  userCover?: ExportImage
 ): Promise<void> {
   const chapters = [...novel.chapters].sort((a, b) => a.order - b.order);
   const title = novel.title || '無題の小説';
@@ -160,7 +162,24 @@ export async function generateDocx(
   const withImages = novel.illustrationsEnabled;
 
   const titlePageChildren: Paragraph[] = [];
-  if (withImages) {
+  if (userCover) {
+    // 表紙の縦横比を保ったまま、扉ページに収まる大きさにする
+    const height = 480;
+    const width = Math.round((userCover.width / userCover.height) * height);
+    titlePageChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 400 },
+        children: [
+          new ImageRun({
+            type: imageExtension(userCover.mime),
+            data: userCover.bytes,
+            transformation: { width, height },
+          }),
+        ],
+      })
+    );
+  } else if (withImages) {
     const cover = await generateCoverImage(novel, 1000, 1600);
     titlePageChildren.push(
       new Paragraph({
