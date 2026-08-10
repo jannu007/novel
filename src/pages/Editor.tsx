@@ -11,6 +11,8 @@ import { REWRITE_INSTRUCTIONS, applyRewriteInstruction } from '../lib/rewriteEng
 import { insertRubyNotation, insertEmphasisNotation } from '../lib/inlineMarkup';
 import { loadPhraseHistory, recordPhraseUsage } from '../lib/phraseHistory';
 
+const VERTICAL_KEY = 'novel-studio:vertical';
+
 export default function Editor() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -28,6 +30,10 @@ export default function Editor() {
     previousContent: string;
   } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // 縦書き（右から左）で書くかどうか。選んだ状態は次回も引き継ぐ。
+  const [vertical, setVertical] = useState(
+    () => localStorage.getItem(VERTICAL_KEY) === 'yes'
+  );
   const appliedInitialChapter = useRef(false);
   const manuscriptRef = useRef<HTMLTextAreaElement>(null);
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
@@ -35,6 +41,10 @@ export default function Editor() {
   useEffect(() => {
     loadPhraseHistory().then(setRewriteAvoid);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(VERTICAL_KEY, vertical ? 'yes' : 'no');
+  }, [vertical]);
 
   useEffect(() => {
     setRewritePreview(null);
@@ -113,11 +123,13 @@ export default function Editor() {
   // 切り替える。この境界チェックにより、本文を読むための通常のスクロールと
   // ジェスチャーが競合しないようにしている。
   function handleManuscriptTouchStart(e: React.TouchEvent<HTMLTextAreaElement>) {
+    if (vertical) return;
     const t = e.touches[0];
     touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
   }
 
   function handleManuscriptTouchEnd(e: React.TouchEvent<HTMLTextAreaElement>) {
+    if (vertical) return;
     const start = touchStartRef.current;
     touchStartRef.current = null;
     const el = manuscriptRef.current;
@@ -365,6 +377,20 @@ export default function Editor() {
                     />
                     <button
                       className="btn btn-sm"
+                      onClick={() => setVertical((v) => !v)}
+                      title={vertical ? '横書きに切り替える' : '縦書き（右から左）に切り替える'}
+                    >
+                      {vertical ? '横書き' : '縦書き'}
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setIsFullscreen(true)}
+                      title="本文だけの全画面にする"
+                    >
+                      全画面
+                    </button>
+                    <button
+                      className="btn btn-sm"
                       onClick={() => insertMarkup('ruby')}
                       title="選択した文字にふりがな（ルビ）を振る"
                     >
@@ -504,7 +530,7 @@ export default function Editor() {
                     <div className="manuscript-wrap">
                       <textarea
                         ref={manuscriptRef}
-                        className="manuscript"
+                        className={`manuscript ${vertical ? 'tategaki' : ''}`}
                         value={activeChapter.content}
                         onChange={(e) =>
                           patchChapter(activeChapter.id, { content: e.target.value })
@@ -519,10 +545,21 @@ export default function Editor() {
                   {isFullscreen &&
                     createPortal(
                       <div className="manuscript-wrap manuscript-fullscreen">
-                        <div className="fullscreen-hint">上から下にスワイプで戻る</div>
+                        <div className="fullscreen-hint">
+                          {vertical ? (
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => setIsFullscreen(false)}
+                            >
+                              全画面をやめる
+                            </button>
+                          ) : (
+                            '上から下にスワイプで戻る'
+                          )}
+                        </div>
                         <textarea
                           ref={manuscriptRef}
-                          className="manuscript"
+                          className={`manuscript ${vertical ? 'tategaki' : ''}`}
                           value={activeChapter.content}
                           onChange={(e) =>
                             patchChapter(activeChapter.id, { content: e.target.value })

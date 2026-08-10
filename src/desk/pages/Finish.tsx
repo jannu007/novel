@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { useWork } from '../useWork';
 import { AppBar, TabBar, NotFound } from '../components/Chrome';
 import { countNovelChars, estimatePages } from '../../lib/textStats';
-import { generateTxt, generateBackupJson } from '../../lib/txt';
+import { generateTxt } from '../../lib/txt';
+import { exportBackup } from '../backup';
 import { TRIM_SIZES } from '../../lib/trimSizes';
 import {
   DEFAULT_ENABLED_RULES,
@@ -36,7 +37,7 @@ async function exportDocx(
 export default function Finish() {
   const { id } = useParams();
   const { work, update, flush } = useWork(id);
-  const [busy, setBusy] = useState<'epub' | 'docx' | null>(null);
+  const [busy, setBusy] = useState<'epub' | 'docx' | 'backup' | null>(null);
   const [hasCover, setHasCover] = useState(false);
 
   useEffect(() => {
@@ -98,6 +99,18 @@ export default function Finish() {
       else await exportDocx(work!, images, cover);
     } catch {
       alert('書き出しに失敗しました。もう一度お試しください。');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runBackup() {
+    setBusy('backup');
+    try {
+      await flush();
+      await exportBackup(work!);
+    } catch {
+      alert('バックアップを作成できませんでした。');
     } finally {
       setBusy(null);
     }
@@ -236,11 +249,16 @@ export default function Finish() {
           <div className="card">
             <b>バックアップ</b>
             <p className="muted">
-              作品まるごと1ファイルに保存します。機種変更のときや、
-              ブラウザのデータを消す前に必ず取っておいてください。
+              本文だけでなく<strong>挿絵と表紙も含めて</strong>1つのファイルに保存します。
+              機種変更のときや、ブラウザのデータを消す前に必ず取っておいてください。
+              作品一覧の設定から読み込めば、画像ごとそのまま元に戻せます。
             </p>
-            <button className="btn btn-wide" onClick={() => generateBackupJson(work)}>
-              バックアップを保存
+            <button
+              className="btn btn-wide"
+              disabled={busy !== null}
+              onClick={() => void runBackup()}
+            >
+              {busy === 'backup' ? '作成中…' : 'バックアップを保存'}
             </button>
           </div>
         </div>

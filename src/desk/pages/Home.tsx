@@ -15,6 +15,7 @@ import {
   prepareImage,
   type WorkImage,
 } from '../images';
+import { importBackup } from '../backup';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -114,16 +115,13 @@ export default function Home() {
     await refresh();
   }
 
-  /** 従来アプリや他端末で書き出したバックアップJSONを取り込む。 */
-  async function importBackup(file: File) {
+  /**
+   * バックアップを取り込む。
+   * 文机のZIP（挿絵・表紙つき）でも、従来アプリのJSONでも読める。
+   */
+  async function restoreBackup(file: File) {
     try {
-      const parsed = JSON.parse(await file.text()) as Novel;
-      if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.chapters)) {
-        throw new Error('形式が違います');
-      }
-      // 取り込み元と衝突しないよう、新しいIDを振り直す
-      const work: Novel = { ...parsed, id: crypto.randomUUID(), updatedAt: Date.now() };
-      await saveWork(work);
+      const work = await importBackup(file);
       await refresh();
       alert(`「${work.title || '無題'}」を読み込みました。`);
     } catch {
@@ -314,11 +312,11 @@ export default function Home() {
           <input
             ref={fileRef}
             type="file"
-            accept="application/json,.json"
+            accept=".zip,application/zip,application/json,.json"
             hidden
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) void importBackup(file);
+              if (file) void restoreBackup(file);
               e.target.value = '';
             }}
           />
