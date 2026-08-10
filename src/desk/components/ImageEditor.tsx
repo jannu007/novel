@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   DEFAULT_EDIT,
+  DEFAULT_FIGURE_SIZE,
+  EFFECT_PRESETS,
+  FIGURE_SIZES,
   FULL_CROP,
   clampCrop,
   cropWithRatio,
@@ -9,6 +12,7 @@ import {
   renderEdited,
   renderOriented,
   type CropRect,
+  type FigureSize,
   type ImageEdit,
 } from '../imageEdit';
 import { prepareImage, type WorkImage } from '../images';
@@ -36,6 +40,7 @@ interface Props {
     blob: Blob;
     original: Blob;
     edit: ImageEdit;
+    size: FigureSize;
     width: number;
     height: number;
     mime: string;
@@ -47,7 +52,9 @@ export default function ImageEditor({ image, onSave, onClose }: Props) {
   // 以前に修正していなければ、いま表示している画像が元の画像になる
   const [source, setSource] = useState<Blob>(image.original ?? image.blob);
   const [mime, setMime] = useState(image.mime);
-  const [edit, setEdit] = useState<ImageEdit>(image.edit ?? DEFAULT_EDIT);
+  // 古いデータには新しい項目が入っていないので、既定値で埋めてから使う
+  const [edit, setEdit] = useState<ImageEdit>({ ...DEFAULT_EDIT, ...image.edit });
+  const [size, setSize] = useState<FigureSize>(image.size ?? DEFAULT_FIGURE_SIZE);
   const [preview, setPreview] = useState<{ url: string; w: number; h: number } | null>(
     null
   );
@@ -164,6 +171,7 @@ export default function ImageEditor({ image, onSave, onClose }: Props) {
         blob: result.blob,
         original: source,
         edit,
+        size,
         width: result.width,
         height: result.height,
         mime,
@@ -279,15 +287,46 @@ export default function ImageEditor({ image, onSave, onClose }: Props) {
         枠の中をドラッグで移動、四隅をドラッグで大きさを変えられます。
       </p>
 
+      <div className="section-title">本文での大きさ</div>
+      <div className="row">
+        {FIGURE_SIZES.map((option) => (
+          <button
+            key={option.key}
+            className={`btn btn-sm ${size === option.key ? 'btn-seal' : ''}`}
+            onClick={() => setSize(option.key)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <p className="muted" style={{ marginTop: 6 }}>
+        本文・縦書きプレビュー・EPUB・Wordのすべてに同じ大きさで反映されます。
+      </p>
+
+      <div className="section-title">エフェクト</div>
+      <div className="chips">
+        {EFFECT_PRESETS.map((preset) => (
+          <button
+            key={preset.label}
+            className="chip"
+            onClick={() => setEdit((p) => ({ ...p, ...preset.look }))}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+
       <div className="section-title">明るさ・色</div>
       <Slider
         label="明るさ"
         value={edit.brightness}
+        step={0.01}
         onChange={(v) => setEdit((p) => ({ ...p, brightness: v }))}
       />
       <Slider
         label="コントラスト"
         value={edit.contrast}
+        step={0.01}
         onChange={(v) => setEdit((p) => ({ ...p, contrast: v }))}
       />
       <Slider
@@ -295,7 +334,44 @@ export default function ImageEditor({ image, onSave, onClose }: Props) {
         value={edit.saturate}
         min={0}
         max={2}
+        step={0.01}
         onChange={(v) => setEdit((p) => ({ ...p, saturate: v }))}
+      />
+      <Slider
+        label="モノクロ"
+        value={edit.grayscale}
+        min={0}
+        max={1}
+        step={0.01}
+        format={(v) => `${Math.round(v * 100)}%`}
+        onChange={(v) => setEdit((p) => ({ ...p, grayscale: v }))}
+      />
+      <Slider
+        label="セピア"
+        value={edit.sepia}
+        min={0}
+        max={1}
+        step={0.01}
+        format={(v) => `${Math.round(v * 100)}%`}
+        onChange={(v) => setEdit((p) => ({ ...p, sepia: v }))}
+      />
+      <Slider
+        label="色あい"
+        value={edit.hueRotate}
+        min={-180}
+        max={180}
+        step={2}
+        format={(v) => `${Math.round(v)}°`}
+        onChange={(v) => setEdit((p) => ({ ...p, hueRotate: v }))}
+      />
+      <Slider
+        label="ぼかし"
+        value={edit.blur}
+        min={0}
+        max={8}
+        step={0.2}
+        format={(v) => `${v.toFixed(1)}px`}
+        onChange={(v) => setEdit((p) => ({ ...p, blur: v }))}
       />
 
       <input
@@ -342,12 +418,16 @@ function Slider({
   onChange,
   min = 0.5,
   max = 1.5,
+  step = 0.02,
+  format = (v: number) => `${Math.round(v * 100)}%`,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  step?: number;
+  format?: (value: number) => string;
 }) {
   return (
     <label className="slider">
@@ -356,11 +436,11 @@ function Slider({
         type="range"
         min={min}
         max={max}
-        step={0.02}
+        step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
       />
-      <b>{Math.round(value * 100)}%</b>
+      <b>{format(value)}</b>
     </label>
   );
 }

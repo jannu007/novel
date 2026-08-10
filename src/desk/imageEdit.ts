@@ -24,6 +24,30 @@ export interface ImageEdit {
   brightness: number;
   contrast: number;
   saturate: number;
+  /** 0 が元のまま、1 で完全なモノクロ */
+  grayscale: number;
+  /** 0 が元のまま、1 で完全なセピア */
+  sepia: number;
+  /** 色相のずらし（度） */
+  hueRotate: number;
+  /** ぼかし（px） */
+  blur: number;
+}
+
+/** 本文に置くときの大きさ。 */
+export type FigureSize = 'small' | 'medium' | 'large' | 'full';
+
+export const FIGURE_SIZES: { key: FigureSize; label: string; scale: number }[] = [
+  { key: 'small', label: '小', scale: 0.4 },
+  { key: 'medium', label: '中', scale: 0.62 },
+  { key: 'large', label: '大', scale: 0.82 },
+  { key: 'full', label: '全面', scale: 1 },
+];
+
+export const DEFAULT_FIGURE_SIZE: FigureSize = 'medium';
+
+export function figureScale(size: FigureSize | undefined): number {
+  return FIGURE_SIZES.find((s) => s.key === (size ?? DEFAULT_FIGURE_SIZE))?.scale ?? 0.62;
 }
 
 export const FULL_CROP: CropRect = { x: 0, y: 0, w: 1, h: 1 };
@@ -35,7 +59,39 @@ export const DEFAULT_EDIT: ImageEdit = {
   brightness: 1,
   contrast: 1,
   saturate: 1,
+  grayscale: 0,
+  sepia: 0,
+  hueRotate: 0,
+  blur: 0,
 };
+
+/** 見た目に関わる部分だけを取り出した型（エフェクトの下ごしらえ用）。 */
+export type ImageLook = Pick<
+  ImageEdit,
+  'brightness' | 'contrast' | 'saturate' | 'grayscale' | 'sepia' | 'hueRotate' | 'blur'
+>;
+
+export const NO_LOOK: ImageLook = {
+  brightness: 1,
+  contrast: 1,
+  saturate: 1,
+  grayscale: 0,
+  sepia: 0,
+  hueRotate: 0,
+  blur: 0,
+};
+
+/** よく使う色味の組み合わせ。押すと色に関する値だけをまとめて差し替える。 */
+export const EFFECT_PRESETS: { label: string; look: ImageLook }[] = [
+  { label: 'そのまま', look: NO_LOOK },
+  { label: 'モノクロ', look: { ...NO_LOOK, grayscale: 1, contrast: 1.05 } },
+  { label: 'セピア', look: { ...NO_LOOK, sepia: 0.85, brightness: 1.03 } },
+  { label: 'ふるい写真', look: { ...NO_LOOK, sepia: 0.55, contrast: 1.12, saturate: 0.8 } },
+  { label: 'あわい', look: { ...NO_LOOK, saturate: 0.75, brightness: 1.08, contrast: 0.92 } },
+  { label: 'くっきり', look: { ...NO_LOOK, saturate: 1.35, contrast: 1.18 } },
+  { label: '夕暮れ', look: { ...NO_LOOK, hueRotate: 12, saturate: 1.2, brightness: 1.05 } },
+  { label: '夜あけ', look: { ...NO_LOOK, hueRotate: -16, saturate: 1.1, brightness: 0.98 } },
+];
 
 export function isDefaultEdit(edit: ImageEdit): boolean {
   return (
@@ -47,13 +103,25 @@ export function isDefaultEdit(edit: ImageEdit): boolean {
     edit.crop.h === 1 &&
     edit.brightness === 1 &&
     edit.contrast === 1 &&
-    edit.saturate === 1
+    edit.saturate === 1 &&
+    edit.grayscale === 0 &&
+    edit.sepia === 0 &&
+    edit.hueRotate === 0 &&
+    edit.blur === 0
   );
 }
 
 /** 画面のプレビューにそのまま使えるCSSのフィルタ指定。 */
 export function filterCss(edit: ImageEdit): string {
-  return `brightness(${edit.brightness}) contrast(${edit.contrast}) saturate(${edit.saturate})`;
+  return [
+    `brightness(${edit.brightness})`,
+    `contrast(${edit.contrast})`,
+    `saturate(${edit.saturate})`,
+    `grayscale(${edit.grayscale})`,
+    `sepia(${edit.sepia})`,
+    `hue-rotate(${edit.hueRotate}deg)`,
+    `blur(${edit.blur}px)`,
+  ].join(' ');
 }
 
 function toBlob(canvas: HTMLCanvasElement, mime: string): Promise<Blob> {

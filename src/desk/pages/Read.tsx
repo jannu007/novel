@@ -6,6 +6,7 @@ import { CloseIcon } from '../components/Icons';
 import { toReadableText, paginateVertical, readableToHtml } from '../../lib/paginate';
 import { parseImageLine } from '../../lib/blockContent';
 import { listImages, type WorkImage } from '../images';
+import { figureScale } from '../imageEdit';
 
 type ReaderPage = { type: 'text'; text: string } | { type: 'image'; id: string };
 
@@ -200,7 +201,14 @@ export default function Read() {
           <figure className="vpage-image">
             {currentImage ? (
               <>
-                <img src={currentImage.url} alt={currentImage.caption || '挿絵'} />
+                <img
+                  src={currentImage.url}
+                  alt={currentImage.caption || '挿絵'}
+                  style={{
+                    maxHeight: `${82 * figureScale(currentImage.size)}%`,
+                    maxWidth: `${100 * figureScale(currentImage.size)}%`,
+                  }}
+                />
                 {currentImage.caption && <figcaption>{currentImage.caption}</figcaption>}
               </>
             ) : (

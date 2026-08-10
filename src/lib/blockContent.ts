@@ -90,6 +90,22 @@ export interface ExportImage {
   width: number;
   height: number;
   caption: string;
+  /** 本文に置くときの大きさ（本文幅に対する割合の名前） */
+  size?: 'small' | 'medium' | 'large' | 'full';
+}
+
+/** 大きさの名前を、本文幅に対する割合に直す。 */
+export function figureSizeScale(size: ExportImage['size']): number {
+  switch (size) {
+    case 'small':
+      return 0.4;
+    case 'large':
+      return 0.82;
+    case 'full':
+      return 1;
+    default:
+      return 0.62;
+  }
 }
 
 export function imageExtension(mime: string): 'png' | 'jpg' {
