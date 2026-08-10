@@ -1,5 +1,6 @@
 import { get, set, del, keys, createStore } from 'idb-keyval';
 import type { ExportImage } from '../lib/blockContent';
+import type { ImageEdit } from './imageEdit';
 
 /** 作品データと同じデータベースに、キーの接頭辞を分けて保存する。 */
 const store = createStore('fuzukue', 'works');
@@ -15,8 +16,15 @@ export interface WorkImage {
   width: number;
   height: number;
   caption: string;
-  /** 画像の実体。IndexedDBはBlobをそのまま保存できる。 */
+  /** 表示・書き出しに使う画像。修正済みのもの。 */
   blob: Blob;
+  /**
+   * 取り込んだままの画像。修正はここから作り直すので、
+   * 何度でもやり直せる。古いデータには入っていないことがある。
+   */
+  original?: Blob;
+  /** どう修正したか。未設定なら修正なし。 */
+  edit?: ImageEdit;
   createdAt: number;
 }
 

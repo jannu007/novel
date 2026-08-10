@@ -16,6 +16,7 @@ import MarkupEditor, {
   type MarkupEditorHandle,
   type EditorImage,
 } from '../components/MarkupEditor';
+import ImageEditor from '../components/ImageEditor';
 import { countChars, countNovelChars, todayStr } from '../../lib/textStats';
 import { listImageIds, removeImageFromContent } from '../../lib/blockContent';
 import {
@@ -42,6 +43,8 @@ export default function Write() {
   );
   const [images, setImages] = useState<WorkImage[]>([]);
   const [busyImage, setBusyImage] = useState(false);
+  /** 修正中の画像 */
+  const [editingImage, setEditingImage] = useState<WorkImage | null>(null);
   const editorRef = useRef<MarkupEditorHandle>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const baselineDone = useRef(false);
@@ -203,6 +206,28 @@ export default function Write() {
   async function setCaption(image: WorkImage, caption: string) {
     setImages((prev) => prev.map((i) => (i.id === image.id ? { ...i, caption } : i)));
     await saveImage({ ...image, caption });
+  }
+
+  /** 修正画面の結果を保存する。IDは変えないので、本文の差し込み位置はそのまま。 */
+  async function saveEditedImage(
+    image: WorkImage,
+    next: {
+      blob: Blob;
+      original: Blob;
+      edit: typeof image.edit;
+      width: number;
+      height: number;
+      mime: string;
+    }
+  ) {
+    await saveImage({ ...image, ...next });
+    await refreshImages();
+  }
+
+  /** 修正を終えたら、もとの挿絵一覧に戻る。 */
+  function closeImageEditor() {
+    setEditingImage(null);
+    setShowImages(true);
   }
 
   /** 挿絵をこの位置から外す（画像そのものは残しておく）。 */
@@ -402,6 +427,11 @@ export default function Write() {
                     image={image}
                     used={usedImageIds.has(image.id)}
                     onInsert={() => insertImageAt(image.id)}
+                    onEdit={() => {
+                      // シートが重ならないよう、一覧はいったん閉じる
+                      setShowImages(false);
+                      setEditingImage(image);
+                    }}
                     onDelete={() => void removeImage(image)}
                     onCaption={(caption) => void setCaption(image, caption)}
                   />
@@ -409,6 +439,16 @@ export default function Write() {
               </div>
             </>
           )}
+        </Sheet>
+      )}
+
+      {editingImage && (
+        <Sheet title="画像を修正" onClose={closeImageEditor}>
+          <ImageEditor
+            image={editingImage}
+            onSave={(next) => saveEditedImage(editingImage, next)}
+            onClose={closeImageEditor}
+          />
         </Sheet>
       )}
 
@@ -436,12 +476,14 @@ function ImageCard({
   image,
   used,
   onInsert,
+  onEdit,
   onDelete,
   onCaption,
 }: {
   image: WorkImage;
   used: boolean;
   onInsert: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   onCaption: (caption: string) => void;
 }) {
@@ -470,6 +512,9 @@ function ImageCard({
         <div className="row" style={{ gap: 6 }}>
           <button className="btn btn-sm" onClick={onInsert}>
             挿入
+          </button>
+          <button className="btn btn-sm" onClick={onEdit}>
+            修正
           </button>
           <button className="btn btn-sm btn-quiet btn-danger" onClick={onDelete}>
             削除

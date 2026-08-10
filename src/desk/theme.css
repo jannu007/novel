@@ -767,6 +767,119 @@ select {
   font-size: 12px;
 }
 
+/* ---------------- 挿絵の修正 ---------------- */
+
+.img-edit {
+  display: block;
+}
+
+.crop-stage {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  background: var(--surface-2);
+  border-radius: 6px;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+.crop-stage > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 切り抜きの外側を暗くして、残る範囲を分かりやすくする */
+.crop-shade {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 18, 15, 0.55);
+  pointer-events: none;
+}
+
+.crop-rect {
+  position: absolute;
+  border: 1px solid var(--seal);
+  cursor: move;
+}
+
+/* 枠の中だけ、暗くしていない元の見た目を出す。
+   四隅のつまみは枠からはみ出して置くので、切り取りは内側の箱だけに掛ける。 */
+.crop-window-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.crop-window {
+  position: absolute;
+  max-width: none;
+  object-fit: contain;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--seal);
+  background: transparent;
+  border-radius: 2px;
+  touch-action: none;
+}
+
+.crop-handle.nw {
+  top: -2px;
+  left: -2px;
+  border-right: none;
+  border-bottom: none;
+  cursor: nwse-resize;
+}
+.crop-handle.ne {
+  top: -2px;
+  right: -2px;
+  border-left: none;
+  border-bottom: none;
+  cursor: nesw-resize;
+}
+.crop-handle.sw {
+  bottom: -2px;
+  left: -2px;
+  border-right: none;
+  border-top: none;
+  cursor: nesw-resize;
+}
+.crop-handle.se {
+  bottom: -2px;
+  right: -2px;
+  border-left: none;
+  border-top: none;
+  cursor: nwse-resize;
+}
+
+.slider {
+  display: grid;
+  grid-template-columns: 6.5em 1fr 3.2em;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.slider input[type='range'] {
+  width: 100%;
+  accent-color: var(--seal);
+}
+
+.slider b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
 /* ---------------- ボトムシート ---------------- */
 
 .sheet-backdrop {
