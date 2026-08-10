@@ -13,6 +13,7 @@
  */
 
 import { stripInline } from './inlineMarkup';
+import { parseImageLine } from './blockContent';
 
 export type Severity = 'error' | 'warning' | 'info';
 
@@ -119,6 +120,8 @@ interface LineInfo {
   text: string;
   start: number;
   no: number;
+  /** 挿絵の記法だけの行（校正の対象にしない） */
+  isImage: boolean;
 }
 
 function splitLines(text: string): LineInfo[] {
@@ -126,7 +129,7 @@ function splitLines(text: string): LineInfo[] {
   let start = 0;
   let no = 1;
   for (const part of text.split('\n')) {
-    lines.push({ text: part, start, no });
+    lines.push({ text: part, start, no, isImage: parseImageLine(part) !== null });
     start += part.length + 1;
     no++;
   }
@@ -835,11 +838,28 @@ function detectSpaceRun(lines: LineInfo[], out: RawIssue[]) {
 // 章単位・作品単位の校正
 // ---------------------------------------------------------------------------
 
+/**
+ * 挿絵の記法の行を同じ長さの空白に置き換える。
+ * 文字位置をずらさずに校正の対象から外すための下ごしらえ。
+ */
+function maskImageLines(lines: LineInfo[], text: string): string {
+  if (!lines.some((l) => l.isImage)) return text;
+  const chars = [...text];
+  for (const line of lines) {
+    if (!line.isImage) continue;
+    for (let i = 0; i < line.text.length; i++) chars[line.start + i] = ' ';
+  }
+  return chars.join('');
+}
+
 export function proofreadText(text: string, options: ProofOptions): RawIssue[] {
   const out: RawIssue[] = [];
   if (!text) return out;
   const { enabled } = options;
-  const lines = splitLines(text);
+  const allLines = splitLines(text);
+  // 挿絵の行は字下げも句点も不要なので、行単位のルールからは除く
+  const lines = allLines.filter((l) => !l.isImage);
+  text = maskImageLines(allLines, text);
 
   if (enabled.has('halfwidth-kana')) detectHalfwidthKana(text, out);
   if (enabled.has('halfwidth-mark')) detectHalfwidthMark(text, out);

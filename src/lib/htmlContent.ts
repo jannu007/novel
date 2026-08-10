@@ -1,4 +1,5 @@
 import { inlineToHtml } from './inlineMarkup';
+import { stripImageLines } from './blockContent';
 
 export function escapeHtml(s: string): string {
   return s
@@ -15,7 +16,8 @@ export function escapeHtml(s: string): string {
  * ルビ・傍点記法は `<ruby>` / `<em class="boten">` に展開する。
  */
 export function contentToParagraphs(content: string): string[] {
-  const lines = content.split(/\r?\n/);
+  // 挿絵の記法はここでは扱わない（画像を含む書き出しは contentToBlocks を使う）
+  const lines = stripImageLines(content).split(/\r?\n/);
   const html: string[] = [];
   let blankRun = 0;
   for (const line of lines) {

@@ -1,5 +1,6 @@
 import { get, set, del, keys, createStore } from 'idb-keyval';
 import type { Chapter, Novel } from '../types';
+import { deleteImagesForWork } from './images';
 
 /**
  * 「文机」専用のデータベース。
@@ -37,6 +38,7 @@ export async function saveWork(work: Novel): Promise<void> {
 export async function deleteWork(id: string): Promise<void> {
   await del(workKey(id), store);
   await del(undoKey(id), store);
+  await deleteImagesForWork(id);
 }
 
 /** 一括修正を取り消すための、直前の本文のひかえ。 */

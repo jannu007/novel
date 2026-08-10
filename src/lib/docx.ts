@@ -14,6 +14,7 @@ import { saveAs } from 'file-saver';
 import type { Novel } from '../types';
 import { generateCoverImage, generateChapterIllustration } from './coverGenerator';
 import { parseInline } from './inlineMarkup';
+import { contentToBlocks, imageExtension, type ExportImage } from './blockContent';
 
 /** 本文の基準サイズ（half-point 単位。22 = 11pt） */
 const BODY_SIZE = 22;
@@ -76,16 +77,16 @@ function buildRuns(line: string): ParagraphChild[] {
   });
 }
 
-function buildBodyParagraphs(content: string): Paragraph[] {
-  const lines = content.split(/\r?\n/);
+/** 本文の横幅（ポイント）。挿絵はこの幅に収まるように縮める。 */
+const BODY_WIDTH_PT = 440;
+
+function buildBodyParagraphs(
+  content: string,
+  userImages?: Map<string, ExportImage>
+): Paragraph[] {
   const paras: Paragraph[] = [];
-  let blankRun = 0;
-  for (const line of lines) {
-    if (line.trim() === '') {
-      blankRun++;
-      continue;
-    }
-    if (blankRun > 0 && paras.length > 0) {
+  for (const block of contentToBlocks(content)) {
+    if (block.type === 'sceneBreak') {
       paras.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
@@ -93,15 +94,46 @@ function buildBodyParagraphs(content: string): Paragraph[] {
           children: [new TextRun('＊')],
         })
       );
+      continue;
     }
-    blankRun = 0;
+    if (block.type === 'paragraph') {
+      paras.push(
+        new Paragraph({
+          indent: { firstLine: 240 },
+          spacing: { line: 360 },
+          children: buildRuns(block.text),
+        })
+      );
+      continue;
+    }
+    const image = userImages?.get(block.id);
+    if (!image) continue; // 画像が見つからない記法は無視する
+    const scale = Math.min(1, BODY_WIDTH_PT / image.width);
     paras.push(
       new Paragraph({
-        indent: { firstLine: 240 },
-        spacing: { line: 360 },
-        children: buildRuns(line),
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 240, after: 120 },
+        children: [
+          new ImageRun({
+            type: imageExtension(image.mime),
+            data: image.bytes,
+            transformation: {
+              width: Math.round(image.width * scale),
+              height: Math.round(image.height * scale),
+            },
+          }),
+        ],
       })
     );
+    if (image.caption) {
+      paras.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 240 },
+          children: [new TextRun({ text: image.caption, size: 18 })],
+        })
+      );
+    }
   }
   if (paras.length === 0) {
     paras.push(new Paragraph({ children: [] }));
@@ -109,7 +141,13 @@ function buildBodyParagraphs(content: string): Paragraph[] {
   return paras;
 }
 
-export async function generateDocx(novel: Novel): Promise<void> {
+/**
+ * @param userImages 本文に ［画像:ID］ で差し込まれた挿絵。
+ */
+export async function generateDocx(
+  novel: Novel,
+  userImages?: Map<string, ExportImage>
+): Promise<void> {
   const chapters = [...novel.chapters].sort((a, b) => a.order - b.order);
   const title = novel.title || '無題の小説';
   const author = novel.author || novel.penName || '';
@@ -197,7 +235,7 @@ export async function generateDocx(novel: Novel): Promise<void> {
         children: [new TextRun(chTitle)],
       })
     );
-    chapterSections.push(...buildBodyParagraphs(ch.content));
+    chapterSections.push(...buildBodyParagraphs(ch.content, userImages));
   }
 
   const doc = new Document({

@@ -4,10 +4,38 @@ import { useWork } from '../useWork';
 import { NotFound } from '../components/Chrome';
 import { CloseIcon } from '../components/Icons';
 import { toReadableText, paginateVertical, readableToHtml } from '../../lib/paginate';
+import { parseImageLine } from '../../lib/blockContent';
+import { listImages, type WorkImage } from '../images';
+
+type ReaderPage = { type: 'text'; text: string } | { type: 'image'; id: string };
+
+/** 本文を「文章のかたまり」と「挿絵」に切り分ける。 */
+function splitByImages(content: string): ({ text: string } | { imageId: string })[] {
+  const parts: ({ text: string } | { imageId: string })[] = [];
+  let buffer: string[] = [];
+  const flush = () => {
+    if (buffer.length > 0) {
+      parts.push({ text: buffer.join('\n') });
+      buffer = [];
+    }
+  };
+  for (const line of content.split(/\r?\n/)) {
+    const imageId = parseImageLine(line);
+    if (imageId) {
+      flush();
+      parts.push({ imageId });
+    } else {
+      buffer.push(line);
+    }
+  }
+  flush();
+  return parts;
+}
 
 /**
  * 縦書きのページ送りで読む画面。
  * 実際の文字幅を測ってページを割るので、ルビが入っても行が崩れない。
+ * 挿絵は本の挿絵と同じように、1枚で1ページを使う。
  */
 export default function Read() {
   const { id } = useParams();
@@ -15,8 +43,11 @@ export default function Read() {
   const { work } = useWork(id);
   const [chapterIndex, setChapterIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pages, setPages] = useState<string[] | null>(null);
+  const [pages, setPages] = useState<ReaderPage[] | null>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  const [imageUrls, setImageUrls] = useState<Map<string, WorkImage & { url: string }>>(
+    new Map()
+  );
   const stageRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const touchX = useRef<number | null>(null);
@@ -25,6 +56,27 @@ export default function Read() {
     () => (work ? [...work.chapters].sort((a, b) => a.order - b.order) : []),
     [work]
   );
+
+  // 挿絵を読み込み、表示用のURLを用意する（画面を離れるときに解放する）
+  useEffect(() => {
+    if (!id) return;
+    let revoked = false;
+    const urls: string[] = [];
+    listImages(id).then((images) => {
+      if (revoked) return;
+      const map = new Map<string, WorkImage & { url: string }>();
+      for (const image of images) {
+        const url = URL.createObjectURL(image.blob);
+        urls.push(url);
+        map.set(image.id, { ...image, url });
+      }
+      setImageUrls(map);
+    });
+    return () => {
+      revoked = true;
+      for (const url of urls) URL.revokeObjectURL(url);
+    };
+  }, [id]);
 
   useEffect(() => {
     const el = stageRef.current;
@@ -45,13 +97,24 @@ export default function Read() {
 
   useEffect(() => {
     if (!box || !measureRef.current || !chapter) return;
-    const computed = paginateVertical(
-      measureRef.current,
-      toReadableText(chapter.content),
-      box.w
-    );
-    setPages(computed);
-    setPageIndex((p) => Math.min(p, computed.length - 1));
+    const built: ReaderPage[] = [];
+    for (const part of splitByImages(chapter.content)) {
+      if ('imageId' in part) {
+        built.push({ type: 'image', id: part.imageId });
+        continue;
+      }
+      if (part.text.trim() === '') continue;
+      for (const text of paginateVertical(
+        measureRef.current,
+        toReadableText(part.text),
+        box.w
+      )) {
+        built.push({ type: 'text', text });
+      }
+    }
+    const result = built.length > 0 ? built : [{ type: 'text' as const, text: '' }];
+    setPages(result);
+    setPageIndex((p) => Math.min(p, result.length - 1));
   }, [box, chapter]);
 
   if (work === undefined) return <div className="body muted">読み込み中…</div>;
@@ -77,6 +140,10 @@ export default function Read() {
       setPageIndex(0);
     }
   }
+
+  const current = pages?.[pageIndex];
+  const currentImage =
+    current && current.type === 'image' ? imageUrls.get(current.id) : undefined;
 
   return (
     <div className="reader">
@@ -128,10 +195,24 @@ export default function Read() {
         <div className="vmeasure" aria-hidden>
           <div className="vtext" ref={measureRef} style={box ? { height: box.h } : undefined} />
         </div>
-        <div
-          className="vtext"
-          dangerouslySetInnerHTML={{ __html: readableToHtml(pages?.[pageIndex] ?? '') }}
-        />
+
+        {current?.type === 'image' ? (
+          <figure className="vpage-image">
+            {currentImage ? (
+              <>
+                <img src={currentImage.url} alt={currentImage.caption || '挿絵'} />
+                {currentImage.caption && <figcaption>{currentImage.caption}</figcaption>}
+              </>
+            ) : (
+              <figcaption>（画像が見つかりません）</figcaption>
+            )}
+          </figure>
+        ) : (
+          <div
+            className="vtext"
+            dangerouslySetInnerHTML={{ __html: readableToHtml(current?.text ?? '') }}
+          />
+        )}
       </div>
 
       <div className="reader-foot">

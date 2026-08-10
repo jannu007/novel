@@ -1,11 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useWork } from '../useWork';
 import { AppBar, TabBar, Sheet, NotFound } from '../components/Chrome';
-import { ListIcon, ExpandIcon, ShrinkIcon, PlusIcon, TrashIcon } from '../components/Icons';
+import {
+  ListIcon,
+  ExpandIcon,
+  ShrinkIcon,
+  PlusIcon,
+  TrashIcon,
+  ImageIcon,
+  TategakiIcon,
+  YokogakiIcon,
+} from '../components/Icons';
 import { countChars, countNovelChars, todayStr } from '../../lib/textStats';
 import { insertRubyNotation, insertEmphasisNotation } from '../../lib/inlineMarkup';
+import { imageNotation, listImageIds, removeImageFromContent } from '../../lib/blockContent';
+import {
+  listImages,
+  saveImage,
+  deleteImage,
+  prepareImage,
+  type WorkImage,
+} from '../images';
 import type { Chapter } from '../../types';
+
+const VERTICAL_KEY = 'fuzukue:vertical';
 
 export default function Write() {
   const { id } = useParams();
@@ -13,8 +32,15 @@ export default function Write() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showChapters, setShowChapters] = useState(false);
   const [showMemo, setShowMemo] = useState(false);
+  const [showImages, setShowImages] = useState(false);
   const [focus, setFocus] = useState(false);
+  const [vertical, setVertical] = useState(
+    () => localStorage.getItem(VERTICAL_KEY) !== 'no'
+  );
+  const [images, setImages] = useState<WorkImage[]>([]);
+  const [busyImage, setBusyImage] = useState(false);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const baselineDone = useRef(false);
 
   const chapters = useMemo(
@@ -25,6 +51,19 @@ export default function Write() {
   useEffect(() => {
     if (!activeId && chapters.length > 0) setActiveId(chapters[0].id);
   }, [chapters, activeId]);
+
+  useEffect(() => {
+    localStorage.setItem(VERTICAL_KEY, vertical ? 'yes' : 'no');
+  }, [vertical]);
+
+  const refreshImages = useCallback(async () => {
+    if (!id) return;
+    setImages(await listImages(id));
+  }, [id]);
+
+  useEffect(() => {
+    void refreshImages();
+  }, [refreshImages]);
 
   // 「今日書いた分」の基準を、日付が変わったら取り直す
   useEffect(() => {
@@ -37,7 +76,6 @@ export default function Write() {
     }
   }, [work, update]);
 
-  // 集中モードのあいだは背面のスクロールを止める
   useEffect(() => {
     document.body.style.overflow = focus ? 'hidden' : '';
     return () => {
@@ -52,6 +90,7 @@ export default function Write() {
   const total = countNovelChars(work.chapters);
   const today = Math.max(0, total - (work.progressBaseline?.chars ?? 0));
   const dailyTarget = work.goal?.dailyWordTarget || 1000;
+  const usedImageIds = new Set(work.chapters.flatMap((c) => listImageIds(c.content)));
 
   function patch(chapterId: string, part: Partial<Chapter>) {
     update((w) => ({
@@ -99,10 +138,80 @@ export default function Write() {
     update((w) => ({ ...w, chapters: next.map((c, k) => ({ ...c, order: k })) }));
   }
 
-  /**
-   * 選択した文字にルビ・傍点の記法を付ける。
-   * 記法は本文にそのまま残り、書き出しのときに正しい体裁へ展開される。
-   */
+  /** カーソル位置に文字列を差し込み、そのうしろにカーソルを置く。 */
+  function insertAtCursor(text: string) {
+    const el = areaRef.current;
+    if (!el || !active) return;
+    const { selectionStart: s, selectionEnd: e } = el;
+    const next = el.value.slice(0, s) + text + el.value.slice(e);
+    patch(active.id, { content: next });
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = s + text.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  /** 挿絵は必ず単独の行になるよう、前後に必要なだけ改行を足す。 */
+  function insertImageAt(imageId: string) {
+    const el = areaRef.current;
+    if (!el || !active) return;
+    const value = el.value;
+    const s = el.selectionStart;
+    const before = value.slice(0, s);
+    const after = value.slice(el.selectionEnd);
+    const lead = before === '' || before.endsWith('\n') ? '' : '\n';
+    // うしろに改行を足すのは、続きの本文が同じ行に残ってしまうときだけ。
+    // 余分に足すと空行になり、シーン区切り（＊）として書き出されてしまう。
+    const trail = after === '' || after.startsWith('\n') ? '' : '\n';
+    insertAtCursor(`${lead}${imageNotation(imageId)}${trail}`);
+    setShowImages(false);
+  }
+
+  async function handleFile(file: File) {
+    if (!id) return;
+    setBusyImage(true);
+    try {
+      const prepared = await prepareImage(file);
+      const image: WorkImage = {
+        id: crypto.randomUUID().replace(/-/g, '').slice(0, 8),
+        workId: id,
+        mime: prepared.mime,
+        width: prepared.width,
+        height: prepared.height,
+        caption: '',
+        blob: prepared.blob,
+        createdAt: Date.now(),
+      };
+      await saveImage(image);
+      await refreshImages();
+      insertImageAt(image.id);
+    } catch {
+      alert('この画像は読み込めませんでした。別の画像をお試しください。');
+    } finally {
+      setBusyImage(false);
+    }
+  }
+
+  async function removeImage(image: WorkImage) {
+    if (!confirm('この画像を削除します。本文に入れた箇所も取り除かれます。')) return;
+    await deleteImage(image.workId, image.id);
+    update((w) => ({
+      ...w,
+      chapters: w.chapters.map((c) => {
+        const next = removeImageFromContent(c.content, image.id);
+        return next === c.content ? c : { ...c, content: next, updatedAt: Date.now() };
+      }),
+    }));
+    await refreshImages();
+  }
+
+  async function setCaption(image: WorkImage, caption: string) {
+    setImages((prev) => prev.map((i) => (i.id === image.id ? { ...i, caption } : i)));
+    await saveImage({ ...image, caption });
+  }
+
+  /** 選んだ文字にルビ・傍点の記法を付ける。 */
   function mark(kind: 'ruby' | 'boten') {
     const el = areaRef.current;
     if (!el || !active) return;
@@ -129,7 +238,7 @@ export default function Write() {
   const editor = (
     <textarea
       ref={areaRef}
-      className="manuscript"
+      className={`manuscript ${vertical ? 'tategaki' : ''}`}
       value={active?.content ?? ''}
       onChange={(e) => active && patch(active.id, { content: e.target.value })}
       placeholder="ここから書きはじめましょう。"
@@ -139,11 +248,22 @@ export default function Write() {
 
   const tools = (
     <div className="write-tools">
+      <button
+        className="icon-btn"
+        onClick={() => setVertical((v) => !v)}
+        aria-label={vertical ? '横書きにする' : '縦書きにする'}
+        title={vertical ? '横書きにする' : '縦書きにする'}
+      >
+        {vertical ? <YokogakiIcon /> : <TategakiIcon />}
+      </button>
       <button className="btn btn-sm" onClick={() => mark('ruby')}>
         ルビ
       </button>
       <button className="btn btn-sm" onClick={() => mark('boten')}>
         傍点
+      </button>
+      <button className="btn btn-sm" onClick={() => setShowImages(true)}>
+        画像
       </button>
       <button className="btn btn-sm" onClick={() => setShowMemo(true)}>
         メモ
@@ -162,17 +282,32 @@ export default function Write() {
     </div>
   );
 
+  const imagePicker = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept="image/*"
+      hidden
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) void handleFile(file);
+        e.target.value = '';
+      }}
+    />
+  );
+
   if (focus) {
     return (
       <div className="focus-mode">
         {editor}
         {tools}
+        {imagePicker}
       </div>
     );
   }
 
   return (
-    <div className="screen">
+    <div className="screen fill">
       <AppBar
         title={active?.title || '無題の章'}
         sub={`${work.title || '無題'}・${saveState === 'saving' ? '保存中…' : '保存済み'}`}
@@ -201,6 +336,8 @@ export default function Write() {
           </div>
         )}
       </div>
+
+      {imagePicker}
 
       {showChapters && (
         <Sheet title="章の一覧" onClose={() => setShowChapters(false)}>
@@ -262,6 +399,42 @@ export default function Write() {
         </Sheet>
       )}
 
+      {showImages && (
+        <Sheet title="挿絵" onClose={() => setShowImages(false)}>
+          <p className="muted" style={{ marginTop: 0 }}>
+            画像はこの端末の中だけに保存され、本文には
+            <span className="figure-chip">［画像:…］</span>
+            という目印だけが入ります。書き出したEPUB・Wordには画像が組み込まれます。
+          </p>
+          <button
+            className="btn btn-seal btn-wide"
+            disabled={busyImage}
+            onClick={() => fileRef.current?.click()}
+          >
+            <ImageIcon />
+            {busyImage ? '取り込み中…' : '画像を選んで挿入'}
+          </button>
+
+          {images.length > 0 && (
+            <>
+              <div className="section-title">この作品の画像</div>
+              <div className="image-grid">
+                {images.map((image) => (
+                  <ImageCard
+                    key={image.id}
+                    image={image}
+                    used={usedImageIds.has(image.id)}
+                    onInsert={() => insertImageAt(image.id)}
+                    onDelete={() => void removeImage(image)}
+                    onCaption={(caption) => void setCaption(image, caption)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </Sheet>
+      )}
+
       {showMemo && active && (
         <Sheet title="この章のメモ" onClose={() => setShowMemo(false)}>
           <p className="muted" style={{ marginTop: 0 }}>
@@ -278,6 +451,54 @@ export default function Write() {
       )}
 
       <TabBar workId={work.id} />
+    </div>
+  );
+}
+
+function ImageCard({
+  image,
+  used,
+  onInsert,
+  onDelete,
+  onCaption,
+}: {
+  image: WorkImage;
+  used: boolean;
+  onInsert: () => void;
+  onDelete: () => void;
+  onCaption: (caption: string) => void;
+}) {
+  const [url, setUrl] = useState('');
+
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(image.blob);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [image.blob]);
+
+  return (
+    <div className="image-card">
+      {url && <img className="thumb" src={url} alt={image.caption || '挿絵'} />}
+      <div className="body">
+        <input
+          className="input"
+          style={{ fontSize: 13, padding: '6px 8px' }}
+          value={image.caption}
+          placeholder="キャプション（任意）"
+          onChange={(e) => onCaption(e.target.value)}
+        />
+        <span className={`used ${used ? 'on' : ''}`}>
+          {used ? '本文に入っています' : '未使用'}
+        </span>
+        <div className="row" style={{ gap: 6 }}>
+          <button className="btn btn-sm" onClick={onInsert}>
+            挿入
+          </button>
+          <button className="btn btn-sm btn-quiet btn-danger" onClick={onDelete}>
+            削除
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

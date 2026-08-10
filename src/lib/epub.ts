@@ -1,7 +1,13 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import type { Novel } from '../types';
-import { escapeHtml, contentToParagraphs } from './htmlContent';
+import { escapeHtml } from './htmlContent';
+import { inlineToHtml } from './inlineMarkup';
+import {
+  contentToBlocks,
+  imageExtension,
+  type ExportImage,
+} from './blockContent';
 import { generateCoverImage, generateChapterIllustration } from './coverGenerator';
 
 const STYLE_CSS = `
@@ -56,6 +62,26 @@ rt {
 rp {
   display: none;
 }
+div.figure {
+  writing-mode: horizontal-tb;
+  -epub-writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  text-align: center;
+  margin: 1em 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+div.figure img {
+  max-width: 100%;
+  max-height: 88vh;
+  height: auto;
+}
+p.figure-caption {
+  text-indent: 0;
+  text-align: center;
+  font-size: 0.8em;
+  margin-top: 0.4em;
+}
 em.boten {
   font-style: normal;
   font-weight: inherit;
@@ -102,7 +128,14 @@ function chapterFileName(i: number) {
 // 縦書き指定は各ページにインラインでも埋め込み、リーダー実装への依存を減らす。
 const INLINE_STYLE_TAG = `<style type="text/css">${STYLE_CSS}</style>`;
 
-export async function generateEpub(novel: Novel): Promise<void> {
+/**
+ * @param userImages 本文に ［画像:ID］ で差し込まれた挿絵。
+ *   渡さなければ、その記法は本文から取り除かれる。
+ */
+export async function generateEpub(
+  novel: Novel,
+  userImages?: Map<string, ExportImage>
+): Promise<void> {
   const zip = new JSZip();
   const uuid = crypto.randomUUID();
   const chapters = [...novel.chapters].sort((a, b) => a.order - b.order);
@@ -135,6 +168,8 @@ export async function generateEpub(novel: Novel): Promise<void> {
   const navLis: string[] = [];
   let playOrder = 1;
   let coverMeta = '';
+  // 同じ挿絵が複数の章で使われても、ファイルは一度だけ入れる
+  const addedUserImages = new Set<string>();
 
   if (withImages) {
     const cover = await generateCoverImage(novel, 1000, 1600);
@@ -209,7 +244,38 @@ export async function generateEpub(novel: Novel): Promise<void> {
     playOrder++;
     navLis.push(`<li><a href="text/${fname}">${chTitle}</a></li>`);
 
-    const bodyParas = contentToParagraphs(ch.content).join('\n');
+    const bodyPieces: string[] = [];
+    for (const block of contentToBlocks(ch.content)) {
+      if (block.type === 'sceneBreak') {
+        bodyPieces.push('<p class="scene-break">＊</p>');
+        continue;
+      }
+      if (block.type === 'paragraph') {
+        bodyPieces.push(
+          `<p>${inlineToHtml(block.text, { escape: escapeHtml, withRp: true })}</p>`
+        );
+        continue;
+      }
+      const image = userImages?.get(block.id);
+      if (!image) continue; // 画像が見つからない記法は無視する
+      const ext = imageExtension(image.mime);
+      const fileName = `user-${image.id}.${ext}`;
+      if (!addedUserImages.has(image.id)) {
+        addedUserImages.add(image.id);
+        zip.file(`OEBPS/images/${fileName}`, image.bytes);
+        manifestItems.push(
+          `<item id="userimg-${image.id}" href="images/${fileName}" media-type="${image.mime}"/>`
+        );
+      }
+      const alt = escapeHtml(image.caption || '挿絵');
+      const caption = image.caption
+        ? `<p class="figure-caption">${escapeHtml(image.caption)}</p>`
+        : '';
+      bodyPieces.push(
+        `<div class="figure"><img src="../images/${fileName}" alt="${alt}"/>${caption}</div>`
+      );
+    }
+    const bodyParas = bodyPieces.join('\n');
     zip.file(
       `OEBPS/text/${fname}`,
       `<?xml version="1.0" encoding="UTF-8"?>

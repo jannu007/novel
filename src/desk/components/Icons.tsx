@@ -90,3 +90,25 @@ export const CloseIcon = (p: Props) => (
     <path d="M6 6l12 12M18 6L6 18" />
   </svg>
 );
+
+export const ImageIcon = (p: Props) => (
+  <svg {...base} {...p} aria-hidden>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <circle cx="8.5" cy="10" r="1.5" />
+    <path d="M5 17l4.5-4.5L13 16l2.5-2.5L19 17" />
+  </svg>
+);
+
+/** 縦書き：右から左へ流れる列を表す */
+export const TategakiIcon = (p: Props) => (
+  <svg {...base} {...p} aria-hidden>
+    <path d="M18 4v16M13 4v11M8 4v16M4 4v8" />
+  </svg>
+);
+
+/** 横書き：上から下へ流れる行を表す */
+export const YokogakiIcon = (p: Props) => (
+  <svg {...base} {...p} aria-hidden>
+    <path d="M4 6h16M4 11h11M4 16h16M4 20h8" />
+  </svg>
+);

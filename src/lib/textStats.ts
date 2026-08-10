@@ -1,10 +1,11 @@
 import { stripInline } from './inlineMarkup';
+import { stripImageLines } from './blockContent';
 
 // 日本語の小説は「文字数」で分量を測るのが一般的なため、
 // 空白・改行を除いた文字数をカウントする。ルビの読みは本文の分量には
 // 含めないのが慣例なので、記法を取り除いてから数える。
 export function countChars(text: string): number {
-  return stripInline(text).replace(/\s/g, '').length;
+  return stripInline(stripImageLines(text)).replace(/\s/g, '').length;
 }
 
 export function countNovelChars(chapters: { content: string }[]): number {

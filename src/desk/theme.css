@@ -519,6 +519,17 @@ select {
 
 /* ---------------- 執筆 ---------------- */
 
+/* 縦書きは「決まった高さ」がないと行が折り返せないため、
+   執筆画面だけは画面の高さをきっちり配分する。 */
+.screen.fill {
+  height: 100svh;
+  min-height: 0;
+}
+
+.screen.fill .body {
+  min-height: 0;
+}
+
 .write-area {
   flex: 1;
   display: flex;
@@ -547,6 +558,19 @@ select {
   opacity: 0.7;
 }
 
+/* 縦書き（右から左へ）。市販の日本語の本と同じ流れで書ける。 */
+/* 縦書きでは要素の「高さ」が1行の長さになる。
+   flex: 1 で高さが確定するので、それに任せる。 */
+.manuscript.tategaki {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  min-height: 0;
+  padding: 20px 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  line-height: 1.9;
+}
+
 .write-tools {
   position: sticky;
   bottom: 0;
@@ -564,6 +588,12 @@ select {
 
 .write-tools::-webkit-scrollbar {
   display: none;
+}
+
+/* 横に並べたまま、はみ出したぶんは横スクロールで見せる。
+   縮ませるとボタンの文字が折り返してしまうため。 */
+.write-tools > * {
+  flex-shrink: 0;
 }
 
 .write-tools .count {
@@ -587,6 +617,54 @@ select {
 
 .focus-mode .manuscript {
   min-height: 0;
+}
+
+/* ---------------- 挿絵 ---------------- */
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.image-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.image-card .thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: var(--surface-2);
+}
+
+.image-card .body {
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.image-card .used {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.image-card .used.on {
+  color: var(--ok);
+}
+
+/* 本文中の挿絵の位置を示す小さな札（縦書きでも横並びに見せる） */
+.figure-chip {
+  display: inline-block;
+  border: 1px dashed var(--seal);
+  color: var(--seal);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 12px;
 }
 
 /* ---------------- ボトムシート ---------------- */
@@ -948,6 +1026,30 @@ select {
 
 .vtext ruby rp {
   display: none;
+}
+
+.vpage-image {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+}
+
+.vpage-image img {
+  max-width: 100%;
+  max-height: 82%;
+  object-fit: contain;
+}
+
+.vpage-image figcaption {
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--ink-2);
+  text-align: center;
 }
 
 .vtext em.boten {
