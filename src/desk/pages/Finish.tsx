@@ -12,15 +12,17 @@ import {
   ruleSeverity,
 } from '../../lib/proofreader';
 import type { Novel, TrimSize } from '../../types';
+import { listImages, toExportImages } from '../images';
+import type { ExportImage } from '../../lib/blockContent';
 
-async function exportEpub(work: Novel) {
+async function exportEpub(work: Novel, images: Map<string, ExportImage>) {
   const { generateEpub } = await import('../../lib/epub');
-  await generateEpub(work);
+  await generateEpub(work, images);
 }
 
-async function exportDocx(work: Novel) {
+async function exportDocx(work: Novel, images: Map<string, ExportImage>) {
   const { generateDocx } = await import('../../lib/docx');
-  await generateDocx(work);
+  await generateDocx(work, images);
 }
 
 export default function Finish() {
@@ -67,8 +69,9 @@ export default function Finish() {
     setBusy(kind);
     try {
       await flush();
-      if (kind === 'epub') await exportEpub(work!);
-      else await exportDocx(work!);
+      const images = await toExportImages(await listImages(work!.id));
+      if (kind === 'epub') await exportEpub(work!, images);
+      else await exportDocx(work!, images);
     } catch {
       alert('書き出しに失敗しました。もう一度お試しください。');
     } finally {
