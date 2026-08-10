@@ -1,6 +1,7 @@
 import { get, set, del, keys, createStore } from 'idb-keyval';
 import type { ExportImage } from '../lib/blockContent';
-import type { ImageEdit } from './imageEdit';
+import type { FigureSize, ImageEdit } from './imageEdit';
+import { DEFAULT_FIGURE_SIZE } from './imageEdit';
 
 /** 作品データと同じデータベースに、キーの接頭辞を分けて保存する。 */
 const store = createStore('fuzukue', 'works');
@@ -25,6 +26,8 @@ export interface WorkImage {
   original?: Blob;
   /** どう修正したか。未設定なら修正なし。 */
   edit?: ImageEdit;
+  /** 本文に置くときの大きさ。未設定なら「中」。 */
+  size?: FigureSize;
   createdAt: number;
 }
 
@@ -115,6 +118,7 @@ export async function toExportImages(
       width: image.width,
       height: image.height,
       caption: image.caption,
+      size: image.size ?? DEFAULT_FIGURE_SIZE,
     });
   }
   return map;

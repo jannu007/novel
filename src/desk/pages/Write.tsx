@@ -19,6 +19,7 @@ import MarkupEditor, {
 import ImageEditor from '../components/ImageEditor';
 import { countChars, countNovelChars, todayStr } from '../../lib/textStats';
 import { listImageIds, removeImageFromContent } from '../../lib/blockContent';
+import { figureScale } from '../imageEdit';
 import {
   listImages,
   saveImage,
@@ -45,6 +46,8 @@ export default function Write() {
   const [busyImage, setBusyImage] = useState(false);
   /** 修正中の画像 */
   const [editingImage, setEditingImage] = useState<WorkImage | null>(null);
+  /** 挿絵一覧から修正画面を開いたか（閉じたときの戻り先を決める） */
+  const [cameFromList, setCameFromList] = useState(false);
   const editorRef = useRef<MarkupEditorHandle>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const baselineDone = useRef(false);
@@ -75,7 +78,11 @@ export default function Write() {
     for (const image of images) {
       const url = URL.createObjectURL(image.blob);
       urls.push(url);
-      map.set(image.id, { url, caption: image.caption });
+      map.set(image.id, {
+        url,
+        caption: image.caption,
+        scale: figureScale(image.size),
+      });
     }
     setImageViews(map);
     return () => {
@@ -224,10 +231,19 @@ export default function Write() {
     await refreshImages();
   }
 
-  /** 修正を終えたら、もとの挿絵一覧に戻る。 */
+  /** 本文の挿絵を押したときに、その画像の修正画面を開く。 */
+  function openImageEditor(imageId: string) {
+    const target = images.find((i) => i.id === imageId);
+    if (!target) return;
+    setShowImages(false);
+    setCameFromList(false);
+    setEditingImage(target);
+  }
+
+  /** 修正を終えたら、開く前の画面に戻る。 */
   function closeImageEditor() {
     setEditingImage(null);
-    setShowImages(true);
+    setShowImages(cameFromList);
   }
 
   /** 挿絵をこの位置から外す（画像そのものは残しておく）。 */
@@ -245,6 +261,7 @@ export default function Write() {
       placeholder="ここから書きはじめましょう。"
       onChange={(next) => patch(active.id, { content: next })}
       onDetachImage={detachImage}
+      onEditImage={openImageEditor}
     />
   ) : null;
 
@@ -430,6 +447,7 @@ export default function Write() {
                     onEdit={() => {
                       // シートが重ならないよう、一覧はいったん閉じる
                       setShowImages(false);
+                      setCameFromList(true);
                       setEditingImage(image);
                     }}
                     onDelete={() => void removeImage(image)}

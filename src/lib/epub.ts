@@ -76,6 +76,10 @@ div.figure img {
   max-height: 88vh;
   height: auto;
 }
+div.figure.size-small img { max-width: 40%; }
+div.figure.size-medium img { max-width: 62%; }
+div.figure.size-large img { max-width: 82%; }
+div.figure.size-full img { max-width: 100%; }
 p.figure-caption {
   text-indent: 0;
   text-align: center;
@@ -272,7 +276,7 @@ export async function generateEpub(
         ? `<p class="figure-caption">${escapeHtml(image.caption)}</p>`
         : '';
       bodyPieces.push(
-        `<div class="figure"><img src="../images/${fileName}" alt="${alt}"/>${caption}</div>`
+        `<div class="figure size-${image.size ?? 'medium'}"><img src="../images/${fileName}" alt="${alt}"/>${caption}</div>`
       );
     }
     const bodyParas = bodyPieces.join('\n');

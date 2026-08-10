@@ -63,6 +63,8 @@ function toContent(segments: Segment[]): string {
 export interface EditorImage {
   url: string;
   caption: string;
+  /** 本文に対する大きさの割合（0〜1） */
+  scale: number;
 }
 
 export interface MarkupEditorHandle {
@@ -81,10 +83,12 @@ interface Props {
   onChange: (content: string) => void;
   /** 挿絵をその位置から外す（画像そのものは残る） */
   onDetachImage: (id: string) => void;
+  /** 挿絵を押したとき（修正画面を開く） */
+  onEditImage: (id: string) => void;
 }
 
 const MarkupEditor = forwardRef<MarkupEditorHandle, Props>(function MarkupEditor(
-  { content, vertical, images, placeholder, onChange, onDetachImage },
+  { content, vertical, images, placeholder, onChange, onDetachImage, onEditImage },
   ref
 ) {
   const segments = useMemo(() => toSegments(content), [content]);
@@ -227,19 +231,29 @@ const MarkupEditor = forwardRef<MarkupEditorHandle, Props>(function MarkupEditor
         if (segment.kind === 'image') {
           const image = images.get(segment.id);
           return (
-            <figure className="seg-image" key={`img-${segment.id}-${index}`}>
+            <figure
+              className="seg-image"
+              key={`img-${segment.id}-${index}`}
+              style={{ ['--fig-scale' as string]: image?.scale ?? 0.62 }}
+              onClick={() => onEditImage(segment.id)}
+              title="押すと修正できます"
+            >
               {image ? (
                 <img src={image.url} alt={image.caption || '挿絵'} />
               ) : (
                 <div className="seg-image-missing">画像が見つかりません</div>
               )}
               {image?.caption && <figcaption>{image.caption}</figcaption>}
+              <span className="seg-image-hint">押して修正</span>
               <button
                 type="button"
                 className="seg-image-remove"
                 aria-label="この位置から外す"
                 title="この位置から外す"
-                onClick={() => onDetachImage(segment.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDetachImage(segment.id);
+                }}
               >
                 <CloseIcon />
               </button>

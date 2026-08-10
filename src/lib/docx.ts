@@ -14,7 +14,12 @@ import { saveAs } from 'file-saver';
 import type { Novel } from '../types';
 import { generateCoverImage, generateChapterIllustration } from './coverGenerator';
 import { parseInline } from './inlineMarkup';
-import { contentToBlocks, imageExtension, type ExportImage } from './blockContent';
+import {
+  contentToBlocks,
+  figureSizeScale,
+  imageExtension,
+  type ExportImage,
+} from './blockContent';
 
 /** 本文の基準サイズ（half-point 単位。22 = 11pt） */
 const BODY_SIZE = 22;
@@ -108,7 +113,8 @@ function buildBodyParagraphs(
     }
     const image = userImages?.get(block.id);
     if (!image) continue; // 画像が見つからない記法は無視する
-    const scale = Math.min(1, BODY_WIDTH_PT / image.width);
+    const targetWidth = BODY_WIDTH_PT * figureSizeScale(image.size);
+    const scale = Math.min(1, targetWidth / image.width);
     paras.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
