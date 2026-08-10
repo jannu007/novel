@@ -12,9 +12,12 @@ import {
   TategakiIcon,
   YokogakiIcon,
 } from '../components/Icons';
+import MarkupEditor, {
+  type MarkupEditorHandle,
+  type EditorImage,
+} from '../components/MarkupEditor';
 import { countChars, countNovelChars, todayStr } from '../../lib/textStats';
-import { insertRubyNotation, insertEmphasisNotation } from '../../lib/inlineMarkup';
-import { imageNotation, listImageIds, removeImageFromContent } from '../../lib/blockContent';
+import { listImageIds, removeImageFromContent } from '../../lib/blockContent';
 import {
   listImages,
   saveImage,
@@ -39,7 +42,7 @@ export default function Write() {
   );
   const [images, setImages] = useState<WorkImage[]>([]);
   const [busyImage, setBusyImage] = useState(false);
-  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<MarkupEditorHandle>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const baselineDone = useRef(false);
 
@@ -60,6 +63,22 @@ export default function Write() {
     if (!id) return;
     setImages(await listImages(id));
   }, [id]);
+
+  // 本文に表示するための一時URL。画像が入れ替わるたびに作り直して解放する。
+  const [imageViews, setImageViews] = useState<Map<string, EditorImage>>(new Map());
+  useEffect(() => {
+    const map = new Map<string, EditorImage>();
+    const urls: string[] = [];
+    for (const image of images) {
+      const url = URL.createObjectURL(image.blob);
+      urls.push(url);
+      map.set(image.id, { url, caption: image.caption });
+    }
+    setImageViews(map);
+    return () => {
+      for (const url of urls) URL.revokeObjectURL(url);
+    };
+  }, [images]);
 
   useEffect(() => {
     void refreshImages();
@@ -138,33 +157,8 @@ export default function Write() {
     update((w) => ({ ...w, chapters: next.map((c, k) => ({ ...c, order: k })) }));
   }
 
-  /** カーソル位置に文字列を差し込み、そのうしろにカーソルを置く。 */
-  function insertAtCursor(text: string) {
-    const el = areaRef.current;
-    if (!el || !active) return;
-    const { selectionStart: s, selectionEnd: e } = el;
-    const next = el.value.slice(0, s) + text + el.value.slice(e);
-    patch(active.id, { content: next });
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = s + text.length;
-      el.setSelectionRange(pos, pos);
-    });
-  }
-
-  /** 挿絵は必ず単独の行になるよう、前後に必要なだけ改行を足す。 */
   function insertImageAt(imageId: string) {
-    const el = areaRef.current;
-    if (!el || !active) return;
-    const value = el.value;
-    const s = el.selectionStart;
-    const before = value.slice(0, s);
-    const after = value.slice(el.selectionEnd);
-    const lead = before === '' || before.endsWith('\n') ? '' : '\n';
-    // うしろに改行を足すのは、続きの本文が同じ行に残ってしまうときだけ。
-    // 余分に足すと空行になり、シーン区切り（＊）として書き出されてしまう。
-    const trail = after === '' || after.startsWith('\n') ? '' : '\n';
-    insertAtCursor(`${lead}${imageNotation(imageId)}${trail}`);
+    editorRef.current?.insertImage(imageId);
     setShowImages(false);
   }
 
@@ -211,40 +205,23 @@ export default function Write() {
     await saveImage({ ...image, caption });
   }
 
-  /** 選んだ文字にルビ・傍点の記法を付ける。 */
-  function mark(kind: 'ruby' | 'boten') {
-    const el = areaRef.current;
-    if (!el || !active) return;
-    const { selectionStart: s, selectionEnd: e } = el;
-    if (s === e) {
-      alert(kind === 'ruby' ? 'ふりがなを振る文字を選んでください。' : '傍点を打つ文字を選んでください。');
-      return;
-    }
-    let result;
-    if (kind === 'ruby') {
-      const reading = prompt('ふりがな', '');
-      if (reading === null || reading.trim() === '') return;
-      result = insertRubyNotation(el.value, s, e, reading.trim());
-    } else {
-      result = insertEmphasisNotation(el.value, s, e);
-    }
-    patch(active.id, { content: result.text });
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(result.selectionStart, result.selectionEnd);
-    });
+  /** 挿絵をこの位置から外す（画像そのものは残しておく）。 */
+  function detachImage(imageId: string) {
+    if (!active) return;
+    patch(active.id, { content: removeImageFromContent(active.content, imageId) });
   }
 
-  const editor = (
-    <textarea
-      ref={areaRef}
-      className={`manuscript ${vertical ? 'tategaki' : ''}`}
-      value={active?.content ?? ''}
-      onChange={(e) => active && patch(active.id, { content: e.target.value })}
+  const editor = active ? (
+    <MarkupEditor
+      ref={editorRef}
+      content={active.content}
+      vertical={vertical}
+      images={imageViews}
       placeholder="ここから書きはじめましょう。"
-      spellCheck={false}
+      onChange={(next) => patch(active.id, { content: next })}
+      onDetachImage={detachImage}
     />
-  );
+  ) : null;
 
   const tools = (
     <div className="write-tools">
@@ -256,10 +233,10 @@ export default function Write() {
       >
         {vertical ? <YokogakiIcon /> : <TategakiIcon />}
       </button>
-      <button className="btn btn-sm" onClick={() => mark('ruby')}>
+      <button className="btn btn-sm" onClick={() => editorRef.current?.insertRuby()}>
         ルビ
       </button>
-      <button className="btn btn-sm" onClick={() => mark('boten')}>
+      <button className="btn btn-sm" onClick={() => editorRef.current?.insertBoten()}>
         傍点
       </button>
       <button className="btn btn-sm" onClick={() => setShowImages(true)}>
