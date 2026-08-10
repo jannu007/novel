@@ -1,0 +1,18 @@
+{
+  "name": "文机 - 小説執筆",
+  "short_name": "文机",
+  "description": "完全無料の小説執筆アプリ。スマートフォンで書きやすい導線と、販売できる品質に整える校正機能を備え、EPUB・DOCX・印刷用PDFに書き出せます。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f2ece0",
+  "theme_color": "#14120f",
+  "lang": "ja",
+  "categories": ["productivity", "books"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

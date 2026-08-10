@@ -248,6 +248,13 @@ export default function Dashboard() {
               新しい小説を書き始める」から最初の一冊を作成しましょう。
             </div>
           )}
+
+          <p className="hint" style={{ marginTop: 40, textAlign: 'center' }}>
+            スマートフォンで書きやすいように作り直した別アプリ{' '}
+            <a href="../desk/">文机（ふづくえ）</a>{' '}
+            もあります。作品データはそれぞれ別に保存されるので、移したいときは
+            この画面の「バックアップ」で保存したJSONを、文机の設定から読み込んでください。
+          </p>
         </div>
       </div>
     </div>
