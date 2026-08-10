@@ -7,8 +7,14 @@ import { DEFAULT_FIGURE_SIZE } from './imageEdit';
 const store = createStore('fuzukue', 'works');
 
 const IMAGE_PREFIX = 'img:';
+/** 表紙は挿絵の一覧に混ざらないよう、別の接頭辞で保存する。 */
+const COVER_PREFIX = 'cover:';
 
 const imageKey = (workId: string, id: string) => `${IMAGE_PREFIX}${workId}:${id}`;
+const coverKey = (workId: string) => `${COVER_PREFIX}${workId}`;
+
+/** 表紙のID（作品につき1枚なので固定） */
+export const COVER_ID = 'cover';
 
 export interface WorkImage {
   id: string;
@@ -102,6 +108,36 @@ export async function deleteImagesForWork(workId: string): Promise<void> {
       .filter((k): k is string => typeof k === 'string' && k.startsWith(prefix))
       .map((k) => del(k, store))
   );
+  await deleteCover(workId);
+}
+
+// ---------------------------------------------------------------------------
+// 表紙
+// ---------------------------------------------------------------------------
+
+export async function saveCover(image: WorkImage): Promise<void> {
+  await set(coverKey(image.workId), image, store);
+}
+
+export async function loadCover(workId: string): Promise<WorkImage | undefined> {
+  return get<WorkImage>(coverKey(workId), store);
+}
+
+export async function deleteCover(workId: string): Promise<void> {
+  await del(coverKey(workId), store);
+}
+
+/** 表紙を書き出し用のバイト列にする。 */
+export async function toExportImage(image: WorkImage): Promise<ExportImage> {
+  return {
+    id: image.id,
+    mime: image.mime,
+    bytes: new Uint8Array(await image.blob.arrayBuffer()),
+    width: image.width,
+    height: image.height,
+    caption: image.caption,
+    size: image.size ?? DEFAULT_FIGURE_SIZE,
+  };
 }
 
 /** 書き出し処理に渡せる形（バイト列）に変換する。 */

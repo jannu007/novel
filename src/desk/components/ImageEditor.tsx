@@ -32,6 +32,14 @@ const RATIOS: { label: string; value: number | null }[] = [
   { label: '16:9', value: 16 / 9 },
 ];
 
+/** 表紙のときだけ出す比率。KDPが推めるのは 1:1.6（縦長）。 */
+const COVER_RATIOS: { label: string; value: number | null }[] = [
+  { label: '表紙 1:1.6', value: 1 / 1.6 },
+  { label: '自由', value: null },
+  { label: '2:3', value: 2 / 3 },
+  { label: '3:4', value: 3 / 4 },
+];
+
 type DragMode = 'move' | 'nw' | 'ne' | 'sw' | 'se';
 
 interface Props {
@@ -46,9 +54,20 @@ interface Props {
     mime: string;
   }) => Promise<void>;
   onClose: () => void;
+  /** 表紙を編集するときは、本文での大きさの指定を出さない */
+  mode?: 'figure' | 'cover';
+  /** 表紙を外す（表紙モードのときだけ） */
+  onRemove?: () => void;
 }
 
-export default function ImageEditor({ image, onSave, onClose }: Props) {
+export default function ImageEditor({
+  image,
+  onSave,
+  onClose,
+  mode = 'figure',
+  onRemove,
+}: Props) {
+  const isCover = mode === 'cover';
   // 以前に修正していなければ、いま表示している画像が元の画像になる
   const [source, setSource] = useState<Blob>(image.original ?? image.blob);
   const [mime, setMime] = useState(image.mime);
@@ -269,7 +288,7 @@ export default function ImageEditor({ image, onSave, onClose }: Props) {
 
       <div className="section-title">切り抜き</div>
       <div className="row">
-        {RATIOS.map((r) => (
+        {(isCover ? COVER_RATIOS : RATIOS).map((r) => (
           <button
             key={r.label}
             className="btn btn-sm"
@@ -287,21 +306,25 @@ export default function ImageEditor({ image, onSave, onClose }: Props) {
         枠の中をドラッグで移動、四隅をドラッグで大きさを変えられます。
       </p>
 
-      <div className="section-title">本文での大きさ</div>
-      <div className="row">
-        {FIGURE_SIZES.map((option) => (
-          <button
-            key={option.key}
-            className={`btn btn-sm ${size === option.key ? 'btn-seal' : ''}`}
-            onClick={() => setSize(option.key)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-      <p className="muted" style={{ marginTop: 6 }}>
-        本文・縦書きプレビュー・EPUB・Wordのすべてに同じ大きさで反映されます。
-      </p>
+      {!isCover && (
+        <>
+          <div className="section-title">本文での大きさ</div>
+          <div className="row">
+            {FIGURE_SIZES.map((option) => (
+              <button
+                key={option.key}
+                className={`btn btn-sm ${size === option.key ? 'btn-seal' : ''}`}
+                onClick={() => setSize(option.key)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="muted" style={{ marginTop: 6 }}>
+            本文・縦書きプレビュー・EPUB・Wordのすべてに同じ大きさで反映されます。
+          </p>
+        </>
+      )}
 
       <div className="section-title">エフェクト</div>
       <div className="chips">
@@ -398,6 +421,11 @@ export default function ImageEditor({ image, onSave, onClose }: Props) {
         >
           修正をやめて元に戻す
         </button>
+        {isCover && onRemove && (
+          <button className="btn btn-sm btn-quiet btn-danger" onClick={onRemove}>
+            表紙を外す
+          </button>
+        )}
       </div>
 
       <div className="row" style={{ marginTop: 18 }}>

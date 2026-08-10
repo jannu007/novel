@@ -135,10 +135,12 @@ const INLINE_STYLE_TAG = `<style type="text/css">${STYLE_CSS}</style>`;
 /**
  * @param userImages 本文に ［画像:ID］ で差し込まれた挿絵。
  *   渡さなければ、その記法は本文から取り除かれる。
+ * @param userCover 作者が用意した表紙。渡すと自動生成の表紙より優先する。
  */
 export async function generateEpub(
   novel: Novel,
-  userImages?: Map<string, ExportImage>
+  userImages?: Map<string, ExportImage>,
+  userCover?: ExportImage
 ): Promise<void> {
   const zip = new JSZip();
   const uuid = crypto.randomUUID();
@@ -175,11 +177,17 @@ export async function generateEpub(
   // 同じ挿絵が複数の章で使われても、ファイルは一度だけ入れる
   const addedUserImages = new Set<string>();
 
-  if (withImages) {
-    const cover = await generateCoverImage(novel, 1000, 1600);
-    zip.file('OEBPS/images/cover.png', cover.bytes);
+  // 作者が表紙を用意していればそれを使い、なければ自動生成の表紙を使う
+  if (userCover || withImages) {
+    const coverExt = userCover ? imageExtension(userCover.mime) : 'png';
+    const coverMime = userCover ? userCover.mime : 'image/png';
+    const coverBytes = userCover
+      ? userCover.bytes
+      : (await generateCoverImage(novel, 1000, 1600)).bytes;
+    const coverFile = `cover.${coverExt}`;
+    zip.file(`OEBPS/images/${coverFile}`, coverBytes);
     manifestItems.push(
-      '<item id="cover-image" href="images/cover.png" media-type="image/png" properties="cover-image"/>',
+      `<item id="cover-image" href="images/${coverFile}" media-type="${coverMime}" properties="cover-image"/>`,
       '<item id="cover-page" href="text/cover.xhtml" media-type="application/xhtml+xml"/>'
     );
     zip.file(
@@ -188,7 +196,7 @@ export async function generateEpub(
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
 <head><title>${title}</title><link rel="stylesheet" type="text/css" href="../style.css"/>${INLINE_STYLE_TAG}</head>
 <body class="cover-body">
-  <img class="cover-image" src="../images/cover.png" alt="${title}"/>
+  <img class="cover-image" src="../images/${coverFile}" alt="${title}"/>
 </body>
 </html>`
     );

@@ -439,6 +439,8 @@ select {
 .work {
   display: flex;
   align-items: stretch;
+  /* 表紙が本の比率（およそ1:1.6）でおさまる高さを確保する */
+  min-height: 112px;
   gap: 0;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -447,24 +449,58 @@ select {
   box-shadow: var(--shadow-card);
 }
 
-/* 背表紙に見立てた縦書きの帯 */
+/* 表紙の枠。表紙がなければ背表紙に見立てた縦書きの帯になる。 */
 .work .spine {
-  width: 46px;
+  width: 68px;
   flex-shrink: 0;
+  position: relative;
   background: var(--surface-2);
+  border: none;
   border-right: 1px solid var(--line);
+  color: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.work .spine .spine-title {
   writing-mode: vertical-rl;
   text-orientation: upright;
   font-family: var(--serif);
   font-size: 13px;
   letter-spacing: 0.18em;
-  color: var(--ink-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-  overflow: hidden;
   white-space: nowrap;
+  overflow: hidden;
+}
+
+.work .spine .spine-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.work .spine .spine-add svg {
+  width: 15px;
+  height: 15px;
+}
+
+.work .spine.has-cover {
+  padding: 0;
+}
+
+.work .spine img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .work .main {
