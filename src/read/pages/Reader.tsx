@@ -132,6 +132,7 @@ export default function Reader() {
         vertical: settings.vertical,
         pageWidth: metrics.pageWidth,
         step: metrics.step,
+        lineHeight,
       });
       setLayout(result);
       const keep = keepBlock.current;
@@ -148,7 +149,7 @@ export default function Reader() {
       }
     });
     return () => cancelAnimationFrame(handle);
-  }, [metrics, current, settings.vertical, settings.size, settings.leading, settings.font]);
+  }, [metrics, current, settings.vertical, settings.font, settings.size, lineHeight]);
 
   /** 組み直しの前に、いま読んでいる場所（かたまりと、その中の何ページ目か）を覚えておく。 */
   const rememberBlock = useCallback(() => {
@@ -417,7 +418,22 @@ export default function Reader() {
   const totalPages = chapters.length;
   const progress =
     (chapter + (pages > 1 ? page / (pages - 1 || 1) : 1)) / Math.max(1, totalPages);
-  const offset = (settings.vertical ? page * (metrics?.step ?? 0) : -page * (metrics?.step ?? 0)) + drag;
+  // ページの位置は行の実測から決まるので、等間隔とは限らない
+  const pageStart = layout?.pageStarts[page] ?? 0;
+  const offset = (settings.vertical ? pageStart : -pageStart) + drag;
+  /*
+   * 本文を見せる窓の幅。そのページの本文が終わるところで閉じるので、
+   * 余白に次のページの1行目が半分だけ覗くことがない（＝文字が切れない）。
+   * 縦書きでは右端を固定して左端だけを動かし、ページごとに本文の位置がずれないようにする。
+   */
+  const windowWidth =
+    metrics && layout
+      ? Math.max(
+          metrics.pageWidth * 0.2,
+          Math.min(metrics.pageWidth, (layout.pageEnds[page] ?? 0) - pageStart)
+        )
+      : (metrics?.pageWidth ?? 0);
+  const sideMargin = metrics ? Math.max(0, ((stage?.w ?? 0) - metrics.pageWidth) / 2) : 0;
 
   return (
     <div className={`reader font-${settings.font} ${settings.vertical ? 'v' : 'h'}`}>
@@ -461,7 +477,20 @@ export default function Reader() {
         }}
         onClick={onTap}
       >
-        <div className="stage-inner">
+        {/*
+          本文を見せる窓。幅をページ幅ちょうどにして中央に置くことで、
+          隣のページの行が余白に覗く（＝文字が切れて見える）ことがなくなる。
+        */}
+        <div
+          className="stage-inner"
+          style={
+            metrics
+              ? settings.vertical
+                ? { width: windowWidth, marginLeft: 'auto', marginRight: sideMargin }
+                : { width: metrics.pageWidth, margin: '0 auto' }
+              : undefined
+          }
+        >
           {metrics && (
             <div
               className={`flow-clip${animating && settings.animate && drag === 0 ? ' anim' : ''}`}
@@ -475,10 +504,11 @@ export default function Reader() {
                   settings.vertical
                     ? {
                         height: metrics.pageHeight,
-                        right: metrics.offset,
+                        right: 0,
                         fontSize: settings.size,
                         lineHeight: `${lineHeight}px`,
                         ['--u' as string]: `${lineHeight}px`,
+                        ['--page' as string]: `${metrics.pageWidth}px`,
                       }
                     : {
                         height: metrics.pageHeight,
@@ -488,6 +518,7 @@ export default function Reader() {
                         fontSize: settings.size,
                         lineHeight: `${lineHeight}px`,
                         ['--u' as string]: `${lineHeight}px`,
+                        ['--page' as string]: `${metrics.pageWidth}px`,
                       }
                 }
               >

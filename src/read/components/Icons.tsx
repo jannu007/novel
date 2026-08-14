@@ -82,6 +82,13 @@ export const GearIcon = () => (
   </svg>
 );
 
+export const InstallIcon = () => (
+  <svg {...base}>
+    <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
+    <path d="M12 7v7M9 11l3 3 3-3" />
+  </svg>
+);
+
 export const PasteIcon = () => (
   <svg {...base}>
     <path d="M9 4h6v3H9zM7 5H5v15h14V5h-2" />

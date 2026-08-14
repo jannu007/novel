@@ -278,6 +278,14 @@ select {
     display: none;
   }
 }
+@media (max-width: 430px) {
+  /* さらに狭いときは、インストールの案内は文字を省いて絵だけにする */
+  .lib-install {
+    font-size: 0;
+    padding: 5px 10px;
+    gap: 0;
+  }
+}
 .lib-mark {
   display: grid;
   place-items: center;
@@ -779,11 +787,16 @@ select {
 .stage:active {
   cursor: grabbing;
 }
-/* ページの窓。ここで切り取るので、隣のページが余白にはみ出して見えない。 */
+/*
+ * ページの窓。幅はページ幅ちょうど（JSから指定）で、中央に置く。
+ * ここで切り取るので、隣のページの行が余白に半分だけ覗くことがない。
+ */
 .stage-inner {
   position: relative;
   width: 100%;
+  max-width: 100%;
   height: 100%;
+  margin: 0 auto;
   overflow: hidden;
 }
 .flow-clip {
@@ -800,6 +813,11 @@ select {
   top: 0;
   margin: 0;
   color: var(--ink);
+  /*
+   * ルビは行の外側（縦書きなら右、横書きなら上）に少しはみ出して組まれる。
+   * ページの1行目のぶんだけ、その逃げ場をあらかじめ空けておく。
+   */
+  padding-block-start: 0.4em;
 }
 .reader.v .flow {
   writing-mode: vertical-rl;
@@ -894,6 +912,7 @@ select {
 .reader.v .md-pre {
   writing-mode: horizontal-tb;
   max-height: 100%;
+  max-width: var(--page);
   overflow: hidden;
 }
 .md-code {
@@ -913,6 +932,8 @@ select {
 }
 .reader.v .md-figure {
   height: 100%;
+  /* 1ページに収まる幅までにして、ページをまたがないようにする */
+  max-width: var(--page);
 }
 .md-figure img {
   max-width: 100%;
@@ -936,6 +957,7 @@ select {
 .reader.v .md-table-wrap {
   writing-mode: horizontal-tb;
   max-height: 100%;
+  max-width: var(--page);
   overflow: hidden;
 }
 .md-table {
