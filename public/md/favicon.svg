@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="製本所">
+  <rect width="64" height="64" rx="14" fill="#1f5f6b" />
+  <path d="M10 18c7-3 14-3 21 1v29c-7-4-14-4-21-1z" fill="#f7f3ea" />
+  <path d="M54 18c-7-3-14-3-21 1v29c7-4 14-4 21-1z" fill="#e6dcc8" />
+  <path d="M32 19v29" stroke="#1f5f6b" stroke-width="2" />
+  <circle cx="46" cy="14" r="4.5" fill="#f0b429" />
+</svg>

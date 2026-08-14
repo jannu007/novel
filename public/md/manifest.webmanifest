@@ -1,0 +1,18 @@
+{
+  "name": "製本所 - Markdownから本を作る",
+  "short_name": "製本所",
+  "description": "Markdownを貼るだけで章・目次・リンクが組まれ、内容に合った表紙と挿絵が付いた本になります。Amazon KDPに出せるEPUB・Word・PDFを、完全無料・通信なしで書き出せます。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f3ea",
+  "theme_color": "#1f5f6b",
+  "lang": "ja",
+  "categories": ["productivity", "books"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
