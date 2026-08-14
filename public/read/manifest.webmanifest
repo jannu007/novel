@@ -1,0 +1,27 @@
+{
+  "name": "栞 - Markdownを本のように読む",
+  "short_name": "栞",
+  "description": "手元のMarkdownファイルを、電子書籍と同じ縦書き・ページめくりで読むための本棚。完全無料・登録不要・通信なし。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f4ee",
+  "theme_color": "#f7f4ee",
+  "lang": "ja",
+  "categories": ["books", "education", "productivity"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "text/markdown": [".md", ".markdown", ".mdown", ".mkd"],
+        "text/plain": [".txt"]
+      }
+    }
+  ]
+}
