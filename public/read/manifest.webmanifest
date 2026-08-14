@@ -1,20 +1,57 @@
 {
+  "id": "shiori-md-reader",
   "name": "栞 - Markdownを本のように読む",
   "short_name": "栞",
   "description": "手元のMarkdownファイルを、電子書籍と同じ縦書き・ページめくりで読むための本棚。完全無料・登録不要・通信なし。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "any",
   "background_color": "#f7f4ee",
   "theme_color": "#f7f4ee",
   "lang": "ja",
+  "dir": "ltr",
   "categories": ["books", "education", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
+  "screenshots": [
+    {
+      "src": "shot-shelf.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "本棚"
+    },
+    {
+      "src": "shot-read.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "読書画面"
+    },
+    {
+      "src": "shot-wide.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "パソコンでの本棚"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "本を追加する",
+      "short_name": "本を追加",
+      "url": "./#/?add=1",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "launch_handler": { "client_mode": "navigate-existing" },
   "file_handlers": [
     {
       "action": "./",

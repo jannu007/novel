@@ -8,7 +8,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cover from '../components/Cover';
 import Sheet from '../components/Sheet';
-import { DownloadIcon, PasteIcon, PlusIcon, ShieldIcon, TrashIcon } from '../components/Icons';
+import {
+  DownloadIcon,
+  InstallIcon,
+  PasteIcon,
+  PlusIcon,
+  ShieldIcon,
+  TrashIcon,
+} from '../components/Icons';
+import { useInstallPrompt } from '../../lib/useInstallPrompt';
 import { clearLibrary, deleteBook, listBooks, saveBook, type BookRecord } from '../db';
 import { downloadSource, makeBook, readBookFiles } from '../import';
 import { readingMinutes } from '../book';
@@ -21,7 +29,8 @@ export default function Library() {
   const [books, setBooks] = useState<BookRecord[] | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [dropping, setDropping] = useState(false);
-  const [sheet, setSheet] = useState<null | 'paste' | 'about' | 'manage'>(null);
+  const [sheet, setSheet] = useState<null | 'paste' | 'about' | 'manage' | 'install'>(null);
+  const { canInstall, promptInstall } = useInstallPrompt();
   const [pasted, setPasted] = useState('');
   const [pastedTitle, setPastedTitle] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
@@ -105,6 +114,12 @@ export default function Library() {
           </div>
         </div>
         <div className="spacer" />
+        {canInstall && !isStandalone() && (
+          <button className="btn btn-sm lib-install" onClick={promptInstall}>
+            <InstallIcon />
+            インストール
+          </button>
+        )}
         <button className="icon-btn" onClick={() => setSheet('about')} aria-label="安全のしくみ">
           <ShieldIcon />
         </button>
@@ -156,6 +171,12 @@ export default function Library() {
               <PasteIcon />
               貼り付けて作る
             </button>
+            {!isStandalone() && (
+              <button className="btn" onClick={() => setSheet('install')}>
+                <InstallIcon />
+                アプリとして入れる
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -208,6 +229,12 @@ export default function Library() {
               <PasteIcon />
               貼り付けて作る
             </button>
+            {!isStandalone() && (
+              <button className="btn btn-ghost" onClick={() => setSheet('install')}>
+                <InstallIcon />
+                アプリとして入れる
+              </button>
+            )}
             <button className="btn btn-ghost" onClick={() => setSheet('manage')}>
               保存データ
             </button>
@@ -274,6 +301,41 @@ export default function Library() {
         </button>
       </Sheet>
 
+      {/* ---- インストールの案内 ---- */}
+      <Sheet open={sheet === 'install'} title="アプリとして入れる" onClose={() => setSheet(null)}>
+        <p>
+          栞はホーム画面やデスクトップに入れて、ふつうのアプリと同じように使えます。
+          入れておくと、アドレスバーのない全画面で開き、電波がなくても本棚を開けます。
+        </p>
+        {canInstall && (
+          <button className="btn btn-primary" onClick={promptInstall}>
+            <InstallIcon />
+            この端末に入れる
+          </button>
+        )}
+        <ul className="about">
+          <li>
+            <strong>iPhone・iPad（Safari）</strong>
+            <br />
+            下の「共有」ボタン（□に↑）→「ホーム画面に追加」→「追加」
+          </li>
+          <li>
+            <strong>Android（Chrome）</strong>
+            <br />
+            右上のメニュー（⋮）→「アプリをインストール」または「ホーム画面に追加」
+          </li>
+          <li>
+            <strong>パソコン（Chrome・Edge）</strong>
+            <br />
+            アドレスバー右端のインストールアイコン、またはメニューから「アプリとしてインストール」
+          </li>
+        </ul>
+        <p className="muted">
+          インストール後は、端末のファイル一覧で .md を選んだときの「アプリで開く」に
+          栞が並びます（対応しているブラウザのみ）。
+        </p>
+      </Sheet>
+
       {/* ---- 安全のしくみ ---- */}
       <Sheet open={sheet === 'about'} title="安全のしくみ" onClose={() => setSheet(null)}>
         <ul className="about">
@@ -307,6 +369,15 @@ export default function Library() {
         </ul>
       </Sheet>
     </div>
+  );
+}
+
+/** すでにアプリとして開いているか（インストール済みなら案内を出さない）。 */
+function isStandalone(): boolean {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
   );
 }
 
