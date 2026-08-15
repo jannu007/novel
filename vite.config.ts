@@ -2,59 +2,53 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
 
-// このリポジトリには独立した3つのアプリが入っている。
+// このリポジトリには独立した4つのアプリが入っている。
 //   /        … 小説執筆スタジオ（従来版）
 //   /desk/   … 文机（新版。UIと操作体系を作り直したもの）
+//   /read/   … 栞（Markdownを電子書籍のように読むリーダー）
 //   /md/     … 製本所（Markdownの原稿を本の形に組んで書き出す）
 // それぞれ別のHTMLを入口にし、別のPWAとしてインストールできる。
-// 純粋なロジック（校正・書き出しなど src/lib）は共有するが、
-// 保存先のデータベースは別なので、作品データが混ざることはない。
+// 純粋なロジック（校正・書き出し・ルビ解析など src/lib）は共有するが、
+// 保存先のデータベースは別なので、作品や蔵書が混ざることはない。
+// https://vite.dev/config/
 
 /**
- * 「製本所」だけに、通信を禁じる厳しい許可設定（CSP）を埋め込む。
- * `connect-src 'none'` により、取り込んだ原稿が外に送られる余地をなくす。
- * 開発サーバーではHMRの通信が必要なため、本番の書き出しにだけ入れる。
+ * 「栞」と「製本所」は、配信されるHTMLに厳しいCSPを書き込んでいる（外部への通信を全面禁止）。
+ * ただし開発サーバーはHMRのためにインラインのスクリプトとWebSocketを使うので、
+ * 開発中だけ、その2つを許した内容に差し替える。本番のビルド結果は元のまま。
  */
-const CONTENT_SECURITY_POLICY = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'none'",
-  "media-src 'none'",
-  "object-src 'none'",
-  "frame-src 'none'",
-  "worker-src 'self'",
-  "manifest-src 'self'",
-  "base-uri 'none'",
-  "form-action 'none'",
-  // frame-ancestors は <meta> では効かないため入れない（配信側のヘッダで指定する）
-].join('; ')
-
-function strictCspForBindery(): Plugin {
+function devCsp(): Plugin {
+  const DEV_CSP =
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+    "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
+    "connect-src 'self' ws: wss:; object-src 'none'";
   return {
-    name: 'strict-csp-for-bindery',
-    apply: 'build',
-    transformIndexHtml(html, ctx) {
-      if (!ctx.path.includes('md/index.html')) return html
+    name: 'dev-csp',
+    apply: 'serve',
+    transformIndexHtml(html) {
       return html.replace(
-        '<head>',
-        `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CONTENT_SECURITY_POLICY}" />`
-      )
+        /(<meta\s+http-equiv="Content-Security-Policy"\s+content=")[^"]*(")/,
+        `$1${DEV_CSP}$2`
+      );
     },
-  }
+  };
 }
 
-// https://vite.dev/config/
 export default defineConfig({
   base: './',
-  plugins: [react(), strictCspForBindery()],
+  plugins: [react(), devCsp()],
+  // どの版が動いているかを画面で確かめられるようにする（栞の「保存データ」に出る）
+  define: {
+    __BUILD_ID__: JSON.stringify(
+      new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+    ),
+  },
   build: {
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         desk: resolve(__dirname, 'desk/index.html'),
+        read: resolve(__dirname, 'read/index.html'),
         md: resolve(__dirname, 'md/index.html'),
       },
     },

@@ -270,12 +270,16 @@ export default function App() {
         <footer className="footer">
           製本所 — 完全無料・通信なし・登録なし。原稿はこの端末から出ません。
           <br />
-          <a className="link" href="../">
-            小説執筆スタジオ
+          <a className="link" href="../read/">
+            栞
           </a>
           ／
           <a className="link" href="../desk/">
             文机
+          </a>
+          ／
+          <a className="link" href="../">
+            小説執筆スタジオ
           </a>
         </footer>
       </div>

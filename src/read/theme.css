@@ -1,0 +1,1119 @@
+/*
+ * 「栞」の外観。
+ *
+ * 目指しているのは、書店で買った電子書籍を開いたときの静けさ。
+ * 画面の主役は本文だけで、操作のための飾りは必要なときだけ出てくる。
+ * 配色は「紙・古書・夜」の3種類（端末に合わせる設定つき）。
+ */
+
+:root {
+  --paper: #f7f4ee;
+  --page: #fffdf8;
+  --surface: #ffffff;
+  --surface-2: #f0ece2;
+  --line: #e0d9cb;
+  --ink: #211f1c;
+  --ink-2: #5d574c;
+  --ink-3: #8f887a;
+  --accent: #8a5a2b;
+  --accent-ink: #ffffff;
+  --danger: #b8433a;
+  --shadow: 0 10px 40px rgba(33, 31, 28, 0.14);
+  --shadow-sm: 0 1px 3px rgba(33, 31, 28, 0.1);
+
+  --mincho: 'Hiragino Mincho ProN', 'Yu Mincho', YuMincho, 'Noto Serif JP',
+    'Songti SC', 'Times New Roman', serif;
+  --gothic: 'Hiragino Sans', 'Yu Gothic', YuGothic, 'Noto Sans JP', system-ui,
+    -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'SFMono-Regular', Menlo, Consolas, 'Noto Sans Mono', monospace;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+
+:root[data-palette='sepia'] {
+  --paper: #efe3cd;
+  --page: #f6ecd9;
+  --surface: #f9f1e2;
+  --surface-2: #e9dcc3;
+  --line: #d8c9ab;
+  --ink: #3c3226;
+  --ink-2: #6a5b45;
+  --ink-3: #93826a;
+  --accent: #8a5a2b;
+  color-scheme: light;
+}
+
+:root[data-palette='night'],
+:root[data-palette='night'] body {
+  --paper: #0f0f11;
+  --page: #16161a;
+  --surface: #1c1c21;
+  --surface-2: #24242b;
+  --line: #2f2f38;
+  --ink: #ded9d0;
+  --ink-2: #a49f96;
+  --ink-3: #746f68;
+  --accent: #c99a63;
+  --accent-ink: #17140f;
+  --danger: #e0685c;
+  --shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-palette]) {
+    --paper: #0f0f11;
+    --page: #16161a;
+    --surface: #1c1c21;
+    --surface-2: #24242b;
+    --line: #2f2f38;
+    --ink: #ded9d0;
+    --ink-2: #a49f96;
+    --ink-3: #746f68;
+    --accent: #c99a63;
+    --accent-ink: #17140f;
+    --danger: #e0685c;
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--gothic);
+  font-size: 16px;
+  line-height: 1.7;
+  overscroll-behavior: none;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.muted {
+  color: var(--ink-2);
+}
+.small {
+  font-size: 0.82rem;
+}
+.spacer {
+  flex: 1;
+}
+.loading {
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  min-height: 100svh;
+  color: var(--ink-2);
+}
+
+/* ---------------- ボタン ---------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.btn:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  background: var(--accent);
+}
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+}
+.btn-danger {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.btn-sm {
+  min-height: 34px;
+  padding: 5px 12px;
+  font-size: 0.88rem;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.icon-btn.on {
+  color: var(--accent);
+}
+.icon-btn.sm {
+  width: 34px;
+  height: 34px;
+}
+.icon-btn .aa {
+  font-family: var(--mincho);
+  font-size: 1.15rem;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.textarea {
+  /* 画面が低いとき（キーボードが出ているとき）は入力欄も縮める */
+  min-height: clamp(110px, 26dvh, 200px);
+  border-radius: 14px;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+/* ---------------- 本棚 ---------------- */
+
+.library {
+  position: relative;
+  min-height: 100svh;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.lib-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px max(16px, env(safe-area-inset-left)) 12px max(16px, env(safe-area-inset-right));
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.lib-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lib-brand strong {
+  display: block;
+  font-family: var(--mincho);
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+}
+.lib-brand small {
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  /* 画面が狭いときは説明を省き、「本を追加」を折り返さない */
+  .lib-brand small {
+    display: none;
+  }
+}
+@media (max-width: 430px) {
+  /* さらに狭いときは、インストールの案内は文字を省いて絵だけにする */
+  .lib-install {
+    font-size: 0;
+    padding: 5px 10px;
+    gap: 0;
+  }
+}
+.lib-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--mincho);
+  font-size: 1.2rem;
+}
+.lib-pad {
+  padding: 24px;
+}
+
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 22px 18px;
+  padding: 24px max(16px, env(safe-area-inset-left));
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.shelf-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+.shelf-open {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 4px 10px 10px 4px;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  box-shadow: var(--shadow-sm);
+}
+.shelf-open:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+.shelf-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.45;
+}
+.shelf-meta strong {
+  font-size: 0.92rem;
+}
+.shelf-meta span {
+  font-size: 0.78rem;
+}
+.shelf-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  backdrop-filter: blur(6px);
+  transition: opacity 0.15s var(--ease);
+}
+.shelf-item:hover .shelf-actions,
+.shelf-item:focus-within .shelf-actions {
+  opacity: 1;
+}
+
+/* 表紙 */
+.cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.6;
+  border-radius: 4px 10px 10px 4px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.cover::after {
+  /* 背表紙の陰影 */
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 12%;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), rgba(255, 255, 255, 0.08));
+}
+.cover-art {
+  position: absolute;
+  inset: 0;
+}
+.cover-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  opacity: 0.75;
+}
+.cover-dot {
+  position: absolute;
+  bottom: 12%;
+  width: 26px;
+  height: 26px;
+  border: 1px solid;
+  border-radius: 50%;
+  opacity: 0.55;
+}
+.cover-text {
+  position: absolute;
+  inset: 14% 12% 18% 20%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--mincho);
+}
+.cover-title {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cover-author {
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+.cover-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.cover-progress span {
+  display: block;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 18vh 24px;
+  text-align: center;
+}
+.empty-title {
+  font-family: var(--mincho);
+  font-size: 1.2rem;
+  margin: 0;
+}
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.lib-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 10px;
+  padding: 8px 16px 24px;
+}
+
+.notice {
+  margin: 12px auto 0;
+  padding: 14px 16px;
+  max-width: 720px;
+  width: calc(100% - 32px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.notice p {
+  margin: 0 0 10px;
+  line-height: 1.6;
+  font-size: 0.92rem;
+}
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.notice-actions .btn {
+  text-decoration: none;
+}
+
+.alert {
+  margin: 12px auto;
+  padding: 12px 16px;
+  max-width: 720px;
+  border: 1px solid var(--danger);
+  border-radius: 14px;
+  color: var(--danger);
+}
+.alert p {
+  margin: 0 0 6px;
+}
+
+.drop-hint {
+  position: fixed;
+  inset: 14px;
+  z-index: 20;
+  display: grid;
+  place-content: center;
+  border: 2px dashed var(--accent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  color: var(--accent);
+  font-family: var(--mincho);
+  font-size: 1.1rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s var(--ease);
+}
+.library.dropping .drop-hint {
+  opacity: 1;
+}
+
+/* ---------------- シート ---------------- */
+
+/*
+ * シートの土台。
+ * キーボードが出ると、画面の枠は同じままで下端だけがキーボードの裏に隠れる
+ * （Androidの既定の動き）。土台の高さを「実際に見えている高さ」に合わせておくと、
+ * シートはキーボードのすぐ上で止まり、下のボタンが切れない。
+ */
+.sheet-backdrop {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vvt, 0px);
+  height: var(--vvh, 100%);
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  animation: fade 0.18s var(--ease);
+}
+.sheet {
+  width: min(560px, 100%);
+  /* 土台（＝見えている範囲）の中に必ず収める */
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--shadow);
+  animation: rise 0.24s var(--ease);
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px 10px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.sheet-body {
+  padding: 16px 20px calc(24px + env(safe-area-inset-bottom));
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* 決定ボタンなど、スクロールさせずに下端へ固定するもの */
+.sheet-foot {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.sheet:has(.sheet-foot) .sheet-body {
+  padding-bottom: 14px;
+}
+.sheet-foot .btn {
+  min-width: 8em;
+}
+.paste-hint {
+  margin: -6px 0 0;
+}
+/*
+ * ファイル選択の入力欄。
+ * `display:none` にはしない（消した入力欄をプログラムから押すと、
+ * Androidで選べる候補が「カメラ」だけになることがあるため）。
+ * 見えないが、ちゃんと置いてある状態にしておく。
+ */
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 見えている「ここをタップして選ぶ」領域 */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 720px;
+  margin: 4px auto 12px;
+  padding: 20px 18px;
+  width: calc(100% - 32px);
+  border: 2px dashed var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.dropzone:hover,
+.dropzone:focus-within {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+.dropzone strong {
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+.dropzone span {
+  font-size: 0.76rem;
+  color: var(--ink-3);
+}
+
+.lib-version {
+  margin: 0 0 8px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 0.7rem;
+}
+.sheet-sub {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+@keyframes rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.about {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.about code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.seg button {
+  padding: 7px 13px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--ink-2);
+}
+.seg button.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.stepper button {
+  width: 38px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.stepper button:disabled {
+  opacity: 0.4;
+}
+.stepper em {
+  min-width: 40px;
+  text-align: center;
+  font-style: normal;
+  color: var(--ink-2);
+}
+
+.toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.toc-item,
+.mark-item,
+.result-item {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.toc-item:hover,
+.mark-item:hover,
+.result-item:hover {
+  background: var(--surface-2);
+}
+.toc-item.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+.toc-l2 {
+  padding-inline-start: 14px;
+  font-size: 0.94em;
+}
+.toc-l3 {
+  padding-inline-start: 28px;
+  font-size: 0.9em;
+}
+.toc-l4 {
+  padding-inline-start: 40px;
+  font-size: 0.88em;
+}
+.marks,
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.mark-item strong,
+.result-item strong {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+.mark-item span,
+.result-item span {
+  color: var(--ink-2);
+  font-size: 0.88rem;
+}
+
+/* ---------------- 読書画面 ---------------- */
+
+.reader {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--page);
+  color: var(--ink);
+  overflow: hidden;
+}
+.reader.font-mincho {
+  font-family: var(--mincho);
+}
+.reader.font-gothic {
+  font-family: var(--gothic);
+}
+
+.reader-bar,
+.reader-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--page) 90%, transparent);
+  backdrop-filter: blur(10px);
+  transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
+  font-family: var(--gothic);
+}
+.reader-bar {
+  top: 0;
+  padding-top: max(8px, env(safe-area-inset-top));
+  border-bottom: 1px solid var(--line);
+}
+.reader-bar.hidden {
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+.reader-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  padding: 0 6px;
+}
+.reader-title strong {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reader-title span {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reader-foot {
+  bottom: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  font-size: 0.74rem;
+  color: var(--ink-3);
+}
+.reader-foot.hidden {
+  opacity: 0;
+  transform: translateY(100%);
+  pointer-events: none;
+}
+.bar {
+  width: 100%;
+  height: 2px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s var(--ease);
+}
+.foot-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.foot-hint {
+  color: var(--ink-3);
+  opacity: 0.75;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+@media (max-width: 480px) {
+  .foot-hint {
+    display: none;
+  }
+}
+
+/* 本文の舞台。ここがページ1枚ぶんの窓になる。 */
+.stage {
+  position: absolute;
+  inset: 0;
+  touch-action: pan-y;
+  cursor: grab;
+  /*
+   * マウスでページをめくるとき、なぞった本文が選択されてしまうと、
+   * 次のドラッグがブラウザ既定の「選択の移動」に取られてページが動かなくなる。
+   * 読書中は文字を選ばない前提にして、めくる操作を最優先にしている。
+   */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.stage:active {
+  cursor: grabbing;
+}
+/*
+ * ページの窓。幅はページ幅ちょうど（JSから指定）で、中央に置く。
+ * ここで切り取るので、隣のページの行が余白に半分だけ覗くことがない。
+ */
+.stage-inner {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+}
+.flow-clip {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.flow-clip.anim {
+  transition: transform 0.34s var(--ease);
+}
+
+.flow {
+  position: absolute;
+  top: 0;
+  margin: 0;
+  color: var(--ink);
+  /*
+   * ルビは行の外側（縦書きなら右、横書きなら上）に少しはみ出して組まれる。
+   * ページの1行目のぶんだけ、その逃げ場をあらかじめ空けておく。
+   */
+  padding-block-start: 0.4em;
+}
+.reader.v .flow {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  width: max-content;
+  font-feature-settings: 'vpal' 1, 'vkrn' 1;
+}
+.reader.h .flow {
+  left: 0;
+  column-fill: auto;
+  hanging-punctuation: allow-end;
+}
+
+/* 本文の体裁 */
+.md-block {
+  margin: 0;
+}
+.md-p {
+  margin: 0;
+  text-indent: 1em;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+.md-p + .md-p {
+  margin: 0;
+}
+.md-h {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+/* 見出しの行の厚みを行送りの倍数にそろえ、ページの区切りを崩さない */
+.md-h1 {
+  font-size: 1.5em;
+  line-height: calc(var(--u) * 2);
+  margin-block: 0 var(--u);
+}
+.md-h2 {
+  font-size: 1.25em;
+  line-height: calc(var(--u) * 2);
+  margin-block: var(--u) 0;
+}
+.md-h3 {
+  font-size: 1.1em;
+  line-height: var(--u);
+  margin-block: var(--u) 0;
+}
+.md-h4,
+.md-h5,
+.md-h6 {
+  font-size: 1em;
+  line-height: var(--u);
+  margin-block: var(--u) 0;
+}
+.reader.h .md-h {
+  break-after: avoid;
+}
+
+.md-quote {
+  margin: 0;
+  padding-inline-start: calc(var(--u) * 0.6);
+  border-inline-start: 2px solid var(--line);
+  color: var(--ink-2);
+}
+.md-list {
+  margin: 0;
+  padding-inline-start: calc(var(--u) * 1.2);
+}
+.md-list li {
+  margin: 0;
+}
+.md-tight {
+  display: inline;
+}
+.md-hr {
+  border: none;
+  border-block-start: 1px solid var(--line);
+  margin-block: var(--u);
+  block-size: 0;
+}
+.md-pre {
+  margin: 0;
+  padding: calc(var(--u) * 0.4);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 0.82em;
+  line-height: var(--u);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.reader.v .md-pre {
+  writing-mode: horizontal-tb;
+  max-height: 100%;
+  max-width: var(--page);
+  overflow: hidden;
+}
+.md-code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+.md-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.reader.v .md-figure {
+  height: 100%;
+  /* 1ページに収まる幅までにして、ページをまたがないようにする */
+  max-width: var(--page);
+}
+.md-figure img {
+  max-width: 100%;
+  max-height: 78%;
+  object-fit: contain;
+}
+.md-figure figcaption {
+  font-size: 0.76em;
+  color: var(--ink-3);
+}
+.reader.h .md-block:has(.md-figure) {
+  break-inside: avoid;
+}
+.md-inline-img {
+  max-width: 8em;
+  vertical-align: middle;
+}
+.md-table-wrap {
+  max-width: 100%;
+}
+.reader.v .md-table-wrap {
+  writing-mode: horizontal-tb;
+  max-height: 100%;
+  max-width: var(--page);
+  overflow: hidden;
+}
+.md-table {
+  border-collapse: collapse;
+  font-size: 0.86em;
+}
+.md-table th,
+.md-table td {
+  border: 1px solid var(--line);
+  padding: 3px 8px;
+}
+.md-table th {
+  background: var(--surface-2);
+}
+.md-block-hit {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 6px;
+}
+.md-end {
+  block-size: 0;
+  inline-size: 0;
+}
+
+.boten {
+  font-style: normal;
+  -webkit-text-emphasis: filled dot;
+  text-emphasis: filled dot;
+  text-emphasis-position: over right;
+}
+.reader.v ruby rt {
+  font-size: 0.5em;
+}
+.reader a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+.md-jump {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
