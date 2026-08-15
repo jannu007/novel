@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="theme-color" content="#1f5f6b" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      name="description"
+      content="Markdownを貼るだけで、章・目次・リンクが自動で組まれ、内容に合った表紙と挿絵まで付く本になります。KDP（Amazon）にそのまま出せるEPUB・Word・PDFを、完全無料・通信なしで書き出せます。"
+    />
+    <title>製本所 | Markdownを、売れる本のかたちに</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="製本所" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/md/main.tsx"></script>
+  </body>
+</html>
