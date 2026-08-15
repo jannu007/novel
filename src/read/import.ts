@@ -130,6 +130,36 @@ export async function readBookFiles(
   return { books, errors };
 }
 
+/**
+ * 他のアプリから「共有」で送られてきたファイルを受け取る。
+ * Service Worker が一時置き場（Cache）にしまったものを拾い、拾ったら消す。
+ * 端末のファイル選択に「ファイル」が出てこないときの、もう一つの入り口。
+ */
+export async function takeSharedFiles(): Promise<File[]> {
+  if (!('caches' in window)) return [];
+  try {
+    const cache = await caches.open('shiori-share');
+    const keys = await cache.keys();
+    const files: File[] = [];
+    for (const key of keys) {
+      const res = await cache.match(key);
+      await cache.delete(key);
+      if (!res) continue;
+      const raw = res.headers.get('X-File-Name');
+      let name = '共有された文章.md';
+      try {
+        if (raw) name = decodeURIComponent(raw);
+      } catch {
+        /* 名前が読めなければ既定の名前のままにする */
+      }
+      files.push(new File([await res.blob()], name));
+    }
+    return files;
+  } catch {
+    return [];
+  }
+}
+
 /** 本を元のMarkdownとして書き出す（取り込んだ原文をそのまま返す）。 */
 export function downloadSource(book: BookRecord): void {
   const name = book.fileName || `${book.title || 'book'}.md`;
