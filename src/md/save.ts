@@ -1,17 +1,21 @@
 /**
  * できあがった本を、端末に取り出すところ。
  *
- * スマートフォンでは「ダウンロードに失敗しました」と出ることがある。
- * 書き出し自体は端末の中で終わっていて、失敗しているのは
- * ブラウザから端末へ渡すところ（保存の入口）である。原因は端末やブラウザ側にあり、
- * とくにアプリ内ブラウザや一部のブラウザでは、作った直後のファイル（blob）を
- * 保存できないことがある。
+ * ここは端末とブラウザの差がいちばん大きい。書き出し自体は端末の中で
+ * 終わっているのに、「ダウンロードに失敗しました」と出ることがある。
+ * 失敗しているのは、ブラウザから端末へ渡す入口である。
  *
- * そこで渡し方を2通り用意している。
- *   1. ふつうの保存（ダウンロード）
- *   2. 「共有」に渡す（保存先アプリを利用者が選ぶ）
- * 2 はAndroid・iPhoneでよく効くが、押した直後にしか呼べない決まりがあるため、
- * 本を組み立て終えたあと、改めて押してもらう形にしている。
+ * 分かっている落とし穴と、その避け方：
+ *
+ *  1. **JavaScriptから押した形の保存は弾かれることがある。**
+ *     → 画面に本物のリンク（`<a download>`）を置き、利用者自身に押してもらう。
+ *  2. **見慣れない種類（application/epub+zip など）を、端末の保存係が断ることがある。**
+ *     → 保存に渡すときだけ「ただのファイル」（application/octet-stream）にする。
+ *       中身も拡張子も変わらないので、KDPへの登録には影響しない。
+ *  3. **日本語のファイル名で失敗する端末がある。**
+ *     → 英数字だけの名前でも保存できるようにしておく。
+ *  4. **そもそも保存できないブラウザがある**（アプリ内ブラウザなど）。
+ *     → 「共有」に渡す道と、別の窓で開く道を用意する。
  */
 
 export interface Saveable {
@@ -19,20 +23,41 @@ export interface Saveable {
   name: string;
 }
 
-/** ふつうの保存。失敗したら false を返す（例外は投げない）。 */
-export function downloadBlob({ blob, name }: Saveable): boolean {
+/**
+ * 保存に渡すためのURL。種類を「ただのファイル」にしてから渡す。
+ * 使い終わったら revoke すること。
+ */
+export function objectUrlFor(item: Saveable): string {
+  const plain = new Blob([item.blob], { type: 'application/octet-stream' });
+  return URL.createObjectURL(plain);
+}
+
+/** 日本語などで失敗する端末のための、英数字だけの名前。 */
+export function asciiName(name: string): string {
+  const dot = name.lastIndexOf('.');
+  const ext = dot > 0 ? name.slice(dot) : '';
+  const stamp = new Date()
+    .toISOString()
+    .slice(0, 16)
+    .replace(/[-:]/g, '')
+    .replace('T', '-');
+  return `book-${stamp}${ext}`;
+}
+
+/** JavaScriptから保存を始める（パソコン向け。失敗しても例外は投げない）。 */
+export function downloadBlob(item: Saveable): boolean {
   try {
-    const url = URL.createObjectURL(blob);
+    const url = objectUrlFor(item);
     const link = document.createElement('a');
     link.href = url;
-    link.download = name;
+    link.download = item.name;
     link.rel = 'noopener';
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     link.remove();
     // すぐ捨てると、保存が始まる前に消えてしまう端末があるので少し待つ
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setTimeout(() => URL.revokeObjectURL(url), 120_000);
     return true;
   } catch {
     return false;

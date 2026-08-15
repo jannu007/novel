@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { canShareFile, downloadBlob, shareFile, type Saveable } from '../save';
+import { downloadBlob, type Saveable } from '../save';
+import SaveBox from '../components/SaveBox';
 import type { Book } from '../book';
 import type { SceneProfile } from '../analyze';
 import { renderChapterArt, renderCover, type RenderedImage } from '../artwork';
@@ -33,7 +34,6 @@ export default function ExportPanel({
 }: Props) {
   const [busy, setBusy] = useState('');
   const [progress, setProgress] = useState(0);
-  const [done, setDone] = useState('');
   const [error, setError] = useState('');
   /** 組み立て終わったファイル。保存はここから何度でもやり直せる。 */
   const [made, setMade] = useState<Saveable | null>(null);
@@ -94,20 +94,15 @@ export default function ExportPanel({
   const run = async (label: string, task: () => Promise<Saveable>) => {
     setBusy(label);
     setProgress(0);
-    setDone('');
     setError('');
     setMade(null);
     try {
       await breathe();
       const item = await task();
       setMade(item);
-      // まずはふつうの保存を試す（パソコンなら、これで終わる）
-      const started = downloadBlob(item);
-      setDone(
-        started
-          ? `${item.name} ができました。保存されないときは、下のボタンからどうぞ。`
-          : `${item.name} ができました。下のボタンから保存してください。`
-      );
+      // パソコン向けに、まずはそのまま保存を試す。
+      // スマートフォンでは弾かれることがあるので、下の受け渡し口も必ず出す。
+      downloadBlob(item);
     } catch (e) {
       setError(e instanceof Error ? e.message : '書き出しに失敗しました。');
     } finally {
@@ -173,29 +168,9 @@ export default function ExportPanel({
             </div>
           </>
         )}
-        {done && <div className="notice ok" style={{ marginTop: 12 }}>{done}</div>}
         {error && <div className="notice" style={{ marginTop: 12 }}>{error}</div>}
 
-        {made && !busy && (
-          <div className="btn-row" style={{ marginTop: 12 }}>
-            <button className="btn" onClick={() => downloadBlob(made)}>
-              保存する
-            </button>
-            {canShareFile(made) && (
-              <button
-                className="btn"
-                onClick={async () => {
-                  const result = await shareFile(made, book.meta.title);
-                  if (result === 'failed') {
-                    setError('共有に渡せませんでした。「保存する」をお試しください。');
-                  }
-                }}
-              >
-                共有して保存
-              </button>
-            )}
-          </div>
-        )}
+        {made && !busy && <SaveBox item={made} title={book.meta.title} />}
 
         <div className="btn-row" style={{ marginTop: 14 }}>
           <button className="btn primary" onClick={exportEpub} disabled={Boolean(busy)}>
