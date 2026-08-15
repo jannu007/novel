@@ -13,6 +13,8 @@ import type { Block, Inline } from './markdown';
 interface RenderOptions {
   /** 本の中のリンク（`#見出し`）を押したときの移動 */
   onJump?: (id: string) => void;
+  /** 本の外を指すリンクを押したとき。押しただけでは開かず、確認を出すために呼ぶ。 */
+  onExternal?: (href: string) => void;
   /** 検索などで強調したいブロックの番号 */
   highlight?: number;
 }
@@ -67,16 +69,23 @@ function renderInline(nodes: Inline[], opts: RenderOptions): ReactNode[] {
             </button>
           );
         }
+        /*
+         * 本の外を指すリンクは `<a href>` にしない。
+         * リンクを踏んだ瞬間に外へ接続が飛ぶと、それだけで
+         * 「この端末がこの本を開いている」という事実が相手側に残る。
+         * ここでは押しても移動せず、行き先を見せて確かめてもらう。
+         */
         return (
-          <a
+          <button
+            type="button"
+            className="md-link-out"
             key={i}
-            href={node.href}
             title={node.title}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
+            data-href={node.href}
+            onClick={() => opts.onExternal?.(node.href)}
           >
             {renderInline(node.children, opts)}
-          </a>
+          </button>
         );
       }
     }
@@ -178,13 +187,15 @@ function renderBlock(block: Block, key: number, opts: RenderOptions): ReactNode 
 export function RenderBlocks({
   blocks,
   onJump,
+  onExternal,
   highlight,
 }: {
   blocks: Block[];
   onJump?: (id: string) => void;
+  onExternal?: (href: string) => void;
   highlight?: number;
 }) {
-  const opts: RenderOptions = { onJump, highlight };
+  const opts: RenderOptions = { onJump, onExternal, highlight };
   return (
     <>
       {blocks.map((block, i) => (

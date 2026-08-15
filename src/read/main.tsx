@@ -8,6 +8,26 @@ import { initSettings } from './settings';
 // 最初の描画の前に配色を決めておき、明→暗のちらつきを避ける
 initSettings();
 
+/*
+ * 他所のページの中に埋め込まれた状態では動かさない。
+ *
+ * 枠の中に入れられると、外側のページが操作を横取りしたり、
+ * 透明な枠を重ねて誤操作をさせたりできてしまう。本文そのものは
+ * 別のサイトから読み取れない（ブラウザの同一生成元の決まり）が、
+ * そもそも埋め込ませない方が確実なので、その場合は開かない。
+ * 本来はサーバー側の frame-ancestors で止める指定だが、
+ * 配信元（GitHub Pages）では応答ヘッダを足せないため、ここで止める。
+ */
+if (window.top !== window.self) {
+  const root = document.getElementById('root');
+  if (root) {
+    root.className = 'framed-stop';
+    root.textContent =
+      '栞は、ほかのページに埋め込まれた状態では開けません。栞のアプリとして開いてください。';
+  }
+  throw new Error('framed');
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>

@@ -8,7 +8,7 @@
  *   （端末のファイル選択に「ファイル」が出てこないときの入り口になる）
  */
 
-const CACHE_NAME = 'shiori-v4';
+const CACHE_NAME = 'shiori-v5';
 /** 共有で受け取ったファイルを、アプリが拾うまで一時的に置いておく場所。 */
 const SHARE_CACHE = 'shiori-share';
 
