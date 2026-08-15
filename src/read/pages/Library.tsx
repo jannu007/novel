@@ -48,10 +48,39 @@ export default function Library() {
   const [noticeClosed, setNoticeClosed] = useState(
     () => localStorage.getItem(NOTICE_KEY) === '1'
   );
+  const [pickFailed, setPickFailed] = useState(false);
+  const [clipboardFailed, setClipboardFailed] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  /** ファイル選択を開いたかどうか（何も選ばれずに戻ってきたのを見つけるため） */
+  const picking = useRef(false);
+  const picked = useRef(false);
 
   const refresh = useCallback(async () => {
     setBooks(await listBooks());
+  }, []);
+
+  /**
+   * ファイル選択を開く。端末によっては候補にカメラしか出ず、何も選べずに
+   * 戻ってくることがあるので、そのときは別の入れ方をその場で案内する。
+   */
+  const openPicker = useCallback(() => {
+    setPickFailed(false);
+    picking.current = true;
+    picked.current = false;
+    fileInput.current?.click();
+  }, []);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (!picking.current) return;
+      picking.current = false;
+      // 選ばれていれば、少し遅れて change が走る
+      window.setTimeout(() => {
+        if (!picked.current) setPickFailed(true);
+      }, 900);
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   useEffect(() => {
@@ -145,7 +174,7 @@ export default function Library() {
         <button className="icon-btn" onClick={() => setSheet('about')} aria-label="安全のしくみ">
           <ShieldIcon />
         </button>
-        <button className="btn btn-primary" onClick={() => fileInput.current?.click()}>
+        <button className="btn btn-primary" onClick={openPicker}>
           <PlusIcon />
           本を追加
         </button>
@@ -162,7 +191,11 @@ export default function Library() {
         multiple
         hidden
         onChange={(e) => {
-          if (e.target.files) addFiles(e.target.files);
+          if (e.target.files && e.target.files.length > 0) {
+            picked.current = true;
+            setPickFailed(false);
+            addFiles(e.target.files);
+          }
           e.target.value = '';
         }}
       />
@@ -213,6 +246,43 @@ export default function Library() {
         </div>
       )}
 
+      {/*
+        選択画面から何も選ばずに戻ってきたとき。端末によっては候補に
+        カメラしか出ず、そもそも選べないので、その場で別の道を出す。
+      */}
+      {pickFailed && (
+        <div className="notice">
+          <p>
+            <strong>ファイルを選べましたか？</strong>
+            候補に「カメラ」しか出ないときは、この画面からは選べません。
+            次のどれかでも本を入れられます。
+          </p>
+          <div className="notice-actions">
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={() => {
+                setPickFailed(false);
+                setSheet('paste');
+              }}
+            >
+              <PasteIcon />
+              貼り付けて作る
+            </button>
+            {isAndroid() && (
+              <a className="btn btn-sm" href={chromeIntentUrl()}>
+                Chromeで開く
+              </a>
+            )}
+            <button className="btn btn-sm btn-ghost" onClick={() => setSheet('howto')}>
+              ほかの入れ方
+            </button>
+            <button className="btn btn-sm btn-ghost" onClick={() => setPickFailed(false)}>
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
       {errors.length > 0 && (
         <div className="alert">
           {errors.map((message, i) => (
@@ -237,7 +307,7 @@ export default function Library() {
             文章を貼り付けて1冊にすることもできます。
           </p>
           <div className="empty-actions">
-            <button className="btn btn-primary" onClick={() => fileInput.current?.click()}>
+            <button className="btn btn-primary" onClick={openPicker}>
               <PlusIcon />
               ファイルを選ぶ
             </button>
@@ -336,7 +406,9 @@ export default function Library() {
             className="btn btn-primary"
             disabled={pasted.trim() === ''}
             onClick={async () => {
-              const name = `${pastedTitle.trim() || '貼り付けた文章'}.md`;
+              // 題名が空なら、貼り付けた文章の最初の見出しを題名にする
+              const heading = /^[ \t]{0,3}#{1,6}[ \t]+(.+)$/m.exec(pasted)?.[1]?.trim();
+              const name = `${pastedTitle.trim() || heading || '貼り付けた文章'}.md`;
               const book = makeBook(pasted, name);
               await saveBook(book);
               setPasted('');
@@ -359,6 +431,34 @@ export default function Library() {
         <p className="muted small paste-hint">
           題名を空のままにすると、本文の見出しから決めます。
         </p>
+        <div className="notice-actions">
+          <button
+            className="btn btn-sm"
+            onClick={async () => {
+              setClipboardFailed(false);
+              try {
+                const text = await navigator.clipboard.readText();
+                if (text) setPasted((prev) => prev + text);
+                else setClipboardFailed(true);
+              } catch {
+                setClipboardFailed(true);
+              }
+            }}
+          >
+            <PasteIcon />
+            クリップボードから入れる
+          </button>
+          {pasted !== '' && (
+            <button className="btn btn-sm btn-ghost" onClick={() => setPasted('')}>
+              消す
+            </button>
+          )}
+        </div>
+        {clipboardFailed && (
+          <p className="muted small">
+            クリップボードから読み取れませんでした。下の欄を長押しして「貼り付け」を選んでください。
+          </p>
+        )}
         <textarea
           className="input textarea"
           placeholder="Markdown を貼り付けてください"
