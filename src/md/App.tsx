@@ -222,7 +222,6 @@ export default function App() {
         <main>
           {tab === 'import' && (
             <ImportPanel
-              source={source}
               onSource={setSource}
               onFiles={handleFiles}
               onDone={() => setTab('structure')}

@@ -1,10 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { readDroppedFiles } from '../assets';
-import { chromeIntentUrl, isAndroid, isInAppBrowser, isStandalone } from '../browser';
-import { useInstallPrompt } from '../../lib/useInstallPrompt';
 
 interface Props {
-  source: string;
   onSource: (text: string) => void;
   onFiles: (text: string, assets: Map<string, string>, names: string[], skipped: string[]) => void;
   onDone: () => void;
@@ -40,20 +37,18 @@ genre: ファンタジー
 `;
 
 /**
- * 原稿を選ぶための種類（accept）。
- * ここに `image/*` を混ぜてはいけない。混ぜると、Androidの選択画面が
- * 「カメラ」「写真」だけになり、ファイルアプリが候補から消えてしまう。
- * 画像は別の入力欄（下の md-pick-image）で選ぶ。
+ * 種類を指定して選ぶときの accept。
+ * 端末によってはこれを付けたほうがファイルアプリが出て、逆に付けると
+ * 「カメラ」「写真」しか出なくなる端末もある。どちらが効くかは端末次第なので、
+ * 主のボタンは種類を指定せず（＝いちばん間口の広い形）、
+ * こちらは選び直し用として置いてある。
+ * 画像も原稿も、受け取ったあとに中身で見分けるので、指定は無くても困らない。
  */
 const TEXT_ACCEPT = '.md,.markdown,.mdown,.mkd,.mdtext,.txt,.text,text/markdown,text/plain';
 
-export default function ImportPanel({ source, onSource, onFiles, onDone, ready }: Props) {
+export default function ImportPanel({ onSource, onFiles, onDone, ready }: Props) {
   const [over, setOver] = useState(false);
   const [note, setNote] = useState('');
-  const [clipboardFailed, setClipboardFailed] = useState(false);
-  const [inApp] = useState(isInAppBrowser);
-  const { canInstall, promptInstall } = useInstallPrompt();
-  const textarea = useRef<HTMLTextAreaElement>(null);
 
   const take = useCallback(
     async (list: FileList | File[] | null) => {
@@ -85,209 +80,65 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
     e.target.value = '';
   };
 
-  /** 写した文章をそのまま流し込む（ファイルを選べない端末でいちばん確実な道）。 */
-  const pasteFromClipboard = async () => {
-    setClipboardFailed(false);
-    try {
-      const text = await navigator.clipboard.readText();
-      if (!text.trim()) {
-        setClipboardFailed(true);
-        return;
-      }
-      onSource(source.trim() ? `${source}\n\n${text}` : text);
-      setNote('写しておいた文章を入れました。');
-    } catch {
-      // 端末が読み取りを許していないときは、自分で貼ってもらう
-      setClipboardFailed(true);
-      textarea.current?.focus();
-      textarea.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
-
-  const focusTextarea = () => {
-    textarea.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    textarea.current?.focus();
-  };
-
   return (
-    <>
-      {inApp && (
-        <div className="notice">
-          <span aria-hidden="true">⚑</span>
-          <div>
-            <b>アプリ内のブラウザで開いています。</b>
-            <span>
-              この画面ではファイルを選べないことがあります。下の「貼り付ける」なら確実に使えます。
-            </span>
-            {isAndroid() && (
-              <div className="btn-row">
-                <a className="btn" href={chromeIntentUrl()}>
-                  Chromeで開き直す
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+    <div className="card">
+      <h2>原稿を読み込む</h2>
 
-      <div className="card">
-        <h2>原稿を渡す</h2>
-        <p className="hint">
-          いちばん確実なのは<b>貼り付け</b>です。原稿を写して（コピーして）、下のボタンを押してください。
-          パソコンやファイルを選べる端末なら、ファイルから読み込むこともできます。
-        </p>
+      {/*
+        ファイル選択の入力欄。スマートフォンでは端末ごとの差が大きい。
 
-        <div className="btn-row">
-          <button className="btn primary wide" onClick={pasteFromClipboard}>
-            写した文章を貼り付ける
-          </button>
-        </div>
-        <p className="hint" style={{ marginTop: 8 }}>
-          押しても入らないときは、
-          <button className="linklike" onClick={focusTextarea}>
-            下の入力欄
-          </button>
-          を長押しして「貼り付け」を選んでください。
-        </p>
-        {clipboardFailed && (
-          <div className="notice">
-            <span aria-hidden="true">⚑</span>
-            <div>
-              <b>この端末では、写した文章を自動で読み取れませんでした。</b>
-              <span>下の入力欄を長押しして「貼り付け」を選んでください。</span>
-            </div>
-          </div>
-        )}
-      </div>
+        - **主のボタンは種類（accept）を指定しない。** 種類を指定すると、
+          それを写真の求めと受け取って「カメラ」「写真」しか出さない端末がある。
+          指定しなければ、ふつうのファイル選択が開く見込みがいちばん高い。
+          何が渡されても、画像か文書かは中身を見て判断している。
+        - **`multiple` を付けない。** 複数選択を求めると、それに対応しない
+          ファイルアプリが候補から外される（Samsungの「マイファイル」など）。
+          まとめて選びたいときのために、別のボタンを用意してある。
+        - **押すのは <label> から。** 利用者が入力欄そのものを押したことになる
+          （JavaScriptから開くと、はじかれる端末がある）。
+      */}
+      <label
+        className={`dropzone${over ? ' over' : ''}`}
+        htmlFor="md-pick"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setOver(false);
+          void take(e.dataTransfer.files);
+        }}
+      >
+        <b>ファイルを選ぶ</b>
+        <span>.md .markdown .txt と、挿絵にする画像</span>
+        <span>1つずつ選んでも、選ぶたびにうしろへ足していきます</span>
+      </label>
 
-      <div className="card">
-        <h2>ファイルから読み込む</h2>
+      <input id="md-pick" type="file" hidden onChange={onPicked} />
+      <input id="md-pick-multi" type="file" multiple hidden onChange={onPicked} />
+      <input id="md-pick-typed" type="file" accept={TEXT_ACCEPT} hidden onChange={onPicked} />
 
-        {/*
-          ファイル選択の入力欄。スマートフォンでは端末ごとの差が大きく、
-          次の形にしないとファイルアプリが候補に出ないことがある。
-
-          - **原稿と画像の入力欄を分ける。** ひとつの欄で `image/*` も受け付けると、
-            Androidの選択画面が「カメラ」「写真」だけになる。
-          - **`multiple` を付けない。** 複数選択を求めると、それに対応しない
-            ファイルアプリが候補から外される（Samsungの「マイファイル」など）。
-          - **押すのは <label> から。** 利用者が入力欄そのものを押したことになる
-            （JavaScriptから開くと、はじかれる端末がある）。
-
-          それでも、選択画面そのものを用意しているのは端末側なので、
-          選べないことは起こりうる。そのときのために、貼り付けと
-          「共有から渡す」道を上と下に置いてある。
-        */}
-        <label
-          className={`dropzone${over ? ' over' : ''}`}
-          htmlFor="md-pick"
-          onDragOver={(e) => {
-            e.preventDefault();
-            setOver(true);
-          }}
-          onDragLeave={() => setOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setOver(false);
-            void take(e.dataTransfer.files);
-          }}
-        >
-          <b>原稿のファイルを選ぶ</b>
-          <span>.md .markdown .txt（パソコンなら、ここに落とすこともできます）</span>
-          <span>1つずつ選んでも、選ぶたびにうしろへ足していきます</span>
+      <div className="btn-row" style={{ marginTop: 12 }}>
+        <label className="btn ghost" htmlFor="md-pick-multi">
+          まとめて選ぶ
         </label>
-
-        <input id="md-pick" type="file" accept={TEXT_ACCEPT} hidden onChange={onPicked} />
-        <input id="md-pick-multi" type="file" accept={TEXT_ACCEPT} multiple hidden onChange={onPicked} />
-        <input id="md-pick-plain" type="file" hidden onChange={onPicked} />
-        <input id="md-pick-image" type="file" accept="image/*" multiple hidden onChange={onPicked} />
-
-        <div className="btn-row" style={{ marginTop: 12 }}>
-          <label className="btn ghost" htmlFor="md-pick-multi">
-            まとめて選ぶ
-          </label>
-          <label className="btn ghost" htmlFor="md-pick-plain">
-            種類を指定せずに選ぶ
-          </label>
-          <label className="btn ghost" htmlFor="md-pick-image">
-            挿絵の画像を足す
-          </label>
-        </div>
-
-        <p className="hint" style={{ marginTop: 10 }}>
-          画像も入れておくと、本文の <code>![](ファイル名)</code> がその画像になります。
-          複数の原稿は、ファイル名の順につなぎます。
-        </p>
-
-        {note && <div className="notice info">{note}</div>}
+        <label className="btn ghost" htmlFor="md-pick-typed">
+          種類を指定して選ぶ
+        </label>
       </div>
 
-      <div className="card">
-        <h2>共有から渡す（スマートフォン向け）</h2>
-        <p className="hint">
-          製本所を<b>アプリとして入れておく</b>と、端末の「マイファイル」やメモ帳から
-          <b>共有 → 製本所</b>で原稿をそのまま渡せます。ファイル選択の画面を通らないので、
-          どの端末でも確実です。
-        </p>
-        <ol className="hint" style={{ paddingLeft: '1.3em' }}>
-          <li>この画面をアプリとして入れる（下のボタン、またはブラウザのメニューから「ホーム画面に追加」）</li>
-          <li>「マイファイル」で .md を長押し →「共有」</li>
-          <li>共有先の一覧から<b>製本所</b>を選ぶ</li>
-        </ol>
-        {canInstall && (
-          <div className="btn-row">
-            <button className="btn primary" onClick={promptInstall}>
-              アプリとして入れる
-            </button>
-          </div>
-        )}
-        {isStandalone() && (
-          <div className="notice ok">
-            <span aria-hidden="true">✓</span>
-            <div>
-              <b>アプリとして開いています。</b>
-              <span>「共有 → 製本所」が使えます。</span>
-            </div>
-          </div>
-        )}
-      </div>
+      {note && <div className="notice info">{note}</div>}
 
-      <div className="card">
-        <h2>貼り付ける</h2>
-        <p className="hint">
-          どの端末でも確実に使える方法です。貼った瞬間から本の形に組み上がります。
-          書き換えれば、その場で組み直します。
-        </p>
-        <textarea
-          ref={textarea}
-          value={source}
-          onChange={(e) => onSource(e.target.value)}
-          placeholder={'# 本のタイトル\n\n## 第一章\n\n　本文をここに……'}
-          spellCheck={false}
-        />
-        <div className="btn-row" style={{ marginTop: 12 }}>
-          <button className="btn primary" onClick={onDone} disabled={!ready}>
-            本にする
-          </button>
-          <button className="btn ghost" onClick={() => onSource(SAMPLE)}>
-            見本を入れてみる
-          </button>
-          <button className="btn ghost" onClick={() => onSource('')} disabled={!source}>
-            消す
-          </button>
-        </div>
+      <div className="btn-row" style={{ marginTop: 14 }}>
+        <button className="btn primary" onClick={onDone} disabled={!ready}>
+          本にする
+        </button>
+        <button className="btn ghost" onClick={() => onSource(SAMPLE)}>
+          見本を入れてみる
+        </button>
       </div>
-
-      <div className="card">
-        <h2>使える書き方</h2>
-        <ul className="hint" style={{ paddingLeft: '1.2em' }}>
-          <li><b># 見出し</b>：章と目次になります（何段目で章を分けるかは自動判定・変更可）</li>
-          <li><b>[表示する文字](#見出し名)</b>：章をまたぐリンクとして本の中でつながります</li>
-          <li><b>[^1]</b>：脚注。Kindleではタップで開くポップアップ注になります</li>
-          <li><b>｜漢字《かんじ》</b>：ルビ　<b>《《ここ》》</b>：傍点</li>
-          <li>箇条書き・引用・表・コード・水平線・YAMLフロントマターにも対応しています</li>
-        </ul>
-      </div>
-    </>
+    </div>
   );
 }
