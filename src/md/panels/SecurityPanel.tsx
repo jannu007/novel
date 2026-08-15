@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { countForeignResources } from '../browser';
 
 interface Props {
   keeping: boolean;
@@ -7,21 +8,6 @@ interface Props {
   onClear: () => void;
   savedAt: number | null;
   hasDraft: boolean;
-}
-
-/** このページが読み込んだ、自分のサイト以外のファイルの数を数える。 */
-function countForeignResources(): number {
-  if (typeof performance === 'undefined' || !performance.getEntriesByType) return 0;
-  const here = location.origin;
-  return performance
-    .getEntriesByType('resource')
-    .filter((entry) => {
-      try {
-        return new URL(entry.name, location.href).origin !== here;
-      } catch {
-        return false;
-      }
-    }).length;
 }
 
 export default function SecurityPanel({

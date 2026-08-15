@@ -20,12 +20,43 @@ export interface LoadedFiles {
   skipped: string[];
 }
 
-const TEXT_EXT = /\.(md|markdown|mdown|mkd|txt|text)$/i;
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i;
 
 /** 1ファイルあたりの上限（読み込み事故で固まらないように）。 */
 const MAX_TEXT_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+
+/**
+ * 文字として読めないファイル（PDF・ZIPなど）かどうかを、先頭を見て判断する。
+ * 拡張子ではなく中身で見るのは、端末によっては `.md` に種類（MIME）が付かず、
+ * 逆に見慣れない拡張子の原稿もあるため。
+ */
+function looksBinary(bytes: ArrayBuffer): boolean {
+  const view = new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 4096));
+  if (view.length === 0) return false;
+  let odd = 0;
+  for (const byte of view) {
+    if (byte === 0) return true;
+    // 改行・タブ・復帰以外の制御文字
+    if (byte < 9 || (byte > 13 && byte < 32)) odd++;
+  }
+  return odd / view.length > 0.05;
+}
+
+/**
+ * 文字コードを見分けて文字列にする。
+ * 日本語の原稿は UTF-8 が多いが、古いものは Shift_JIS や EUC-JP のこともある。
+ */
+function decodeText(bytes: ArrayBuffer): string {
+  for (const encoding of ['utf-8', 'shift_jis', 'euc-jp']) {
+    try {
+      return new TextDecoder(encoding, { fatal: true }).decode(bytes);
+    } catch {
+      /* 次の文字コードを試す */
+    }
+  }
+  return new TextDecoder('utf-8').decode(bytes);
+}
 
 export async function readDroppedFiles(files: File[]): Promise<LoadedFiles> {
   const texts: { name: string; body: string }[] = [];
@@ -35,14 +66,7 @@ export async function readDroppedFiles(files: File[]): Promise<LoadedFiles> {
 
   for (const file of files) {
     const path = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
-    if (TEXT_EXT.test(file.name) || file.type.startsWith('text/')) {
-      if (file.size > MAX_TEXT_BYTES) {
-        skipped.push(`${file.name}（大きすぎます）`);
-        continue;
-      }
-      texts.push({ name: path, body: await file.text() });
-      continue;
-    }
+
     if (IMAGE_EXT.test(file.name) || file.type.startsWith('image/')) {
       if (file.size > MAX_IMAGE_BYTES) {
         skipped.push(`${file.name}（大きすぎます）`);
@@ -58,7 +82,18 @@ export async function readDroppedFiles(files: File[]): Promise<LoadedFiles> {
       }
       continue;
     }
-    skipped.push(file.name);
+
+    // 画像でなければ、中身が文字として読めるかどうかで判断する
+    if (file.size > MAX_TEXT_BYTES) {
+      skipped.push(`${file.name}（大きすぎます）`);
+      continue;
+    }
+    const bytes = await file.arrayBuffer();
+    if (looksBinary(bytes)) {
+      skipped.push(`${file.name}（文書として読めません）`);
+      continue;
+    }
+    texts.push({ name: path, body: decodeText(bytes) });
   }
 
   // 複数ファイルはファイル名順に並べる（01-.md, 02-.md のような原稿のため）
