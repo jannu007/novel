@@ -3,6 +3,7 @@ import {
   asciiName,
   canShareFile,
   objectUrlFor,
+  serviceWorkerUrlFor,
   shareFile,
   type Saveable,
 } from '../save';
@@ -21,25 +22,46 @@ interface Props {
  * それでも駄目なときのために、渡し方を何通りか並べてある。
  */
 export default function SaveBox({ item, title }: Props) {
-  const [url, setUrl] = useState('');
+  /** 端末がいちばん素直に受け取れる渡し先（サービスワーカー経由）。 */
+  const [mainUrl, setMainUrl] = useState('');
+  /** 作った直後のファイルとしての渡し先（従来の方法）。 */
+  const [blobUrl, setBlobUrl] = useState('');
   const [message, setMessage] = useState('');
 
-  // 同じファイルに対しては、ひとつのURLを使い回す
   useEffect(() => {
+    let alive = true;
     const made = objectUrlFor(item);
-    setUrl(made);
+    setBlobUrl(made);
+    setMainUrl('');
     setMessage('');
-    return () => URL.revokeObjectURL(made);
+    void serviceWorkerUrlFor(item).then((url) => {
+      if (alive && url) setMainUrl(url);
+    });
+    return () => {
+      alive = false;
+      URL.revokeObjectURL(made);
+    };
   }, [item]);
 
+  const url = mainUrl || blobUrl;
   if (!url) return null;
 
   return (
     <div className="save-box">
       <b>{item.name} ができました</b>
       <div className="btn-row">
-        {/* 本物のリンク。利用者が押した保存として扱われる */}
-        <a className="btn primary" href={url} download={item.name}>
+        {/*
+          本物のリンク。利用者が押した保存として扱われる。
+          サービスワーカー経由のときは download を付けない。
+          download 付きの求めはサービスワーカーを通らないため、
+          こちらは「ふつうのファイルの受け取り」として開き、
+          添えた見出し（Content-Disposition）で保存させる。
+        */}
+        <a
+          className="btn primary"
+          href={url}
+          {...(mainUrl ? {} : { download: item.name })}
+        >
           保存する
         </a>
 
@@ -58,12 +80,17 @@ export default function SaveBox({ item, title }: Props) {
         )}
 
         {/* 日本語のファイル名で断られる端末のために */}
-        <a className="btn ghost" href={url} download={asciiName(item.name)}>
+        <a className="btn ghost" href={blobUrl} download={asciiName(item.name)}>
           英数字の名前で保存
         </a>
 
+        {/* 渡し方を変えて、もう一度試すためのもの */}
+        <a className="btn ghost" href={blobUrl} download={item.name}>
+          別の方法で保存
+        </a>
+
         {/* 保存として受け取れない端末のために、いったん開く */}
-        <a className="btn ghost" href={url} target="_blank" rel="noreferrer noopener">
+        <a className="btn ghost" href={blobUrl} target="_blank" rel="noreferrer noopener">
           開いて保存
         </a>
 

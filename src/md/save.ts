@@ -32,6 +32,53 @@ export function objectUrlFor(item: Saveable): string {
   return URL.createObjectURL(plain);
 }
 
+/** ファイル名を、見出し（Content-Disposition）に載せられる形にする。 */
+function encodeFileName(name: string): string {
+  const ascii = name.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
+/**
+ * サービスワーカー経由の、ふつうのファイルとしての受け取り口を用意する。
+ *
+ * アプリとして入れて使っているときなど、その場で作ったファイル（blob）を
+ * 端末の保存係が受け取らないことがある（「ダウンロードに失敗しました」）。
+ * いったんサービスワーカーの置き場に入れ、`./out/…` から
+ * ふつうのファイルとして返してもらうと、素直に保存できる。
+ *
+ * 用意できないとき（サービスワーカーがまだ動いていないなど）は null を返す。
+ */
+export async function serviceWorkerUrlFor(item: Saveable): Promise<string | null> {
+  try {
+    if (!('serviceWorker' in navigator) || !('caches' in window)) return null;
+    if (!navigator.serviceWorker.controller) {
+      // まだ受け持たれていないときは、動き出すのを少しだけ待つ
+      await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+      if (!navigator.serviceWorker.controller) return null;
+    }
+    const url = new URL(`./out/${encodeURIComponent(item.name)}`, location.href).href;
+    const cache = await caches.open('seihonjo-out');
+    // 前に置いたものは残さない
+    for (const key of await cache.keys()) await cache.delete(key);
+    await cache.put(
+      url,
+      new Response(item.blob, {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': encodeFileName(item.name),
+          'Content-Length': String(item.blob.size),
+        },
+      })
+    );
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 /** 日本語などで失敗する端末のための、英数字だけの名前。 */
 export function asciiName(name: string): string {
   const dot = name.lastIndexOf('.');
