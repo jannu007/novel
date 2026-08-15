@@ -129,10 +129,14 @@ export default function Library() {
         </button>
       </header>
 
+      {/*
+        種類（accept）でしぼり込むと、端末によってはファイルアプリが選択肢から消えて
+        本を選べなくなる（Androidで .md や text/markdown を知らない場合）。
+        ここではしぼらず、選ばれたあとに中身が文字として読めるかで判断する。
+      */}
       <input
         ref={fileInput}
         type="file"
-        accept=".md,.markdown,.mdown,.mkd,.txt,text/markdown,text/plain"
         multiple
         hidden
         onChange={(e) => {
@@ -159,6 +163,8 @@ export default function Library() {
           <p className="empty-title">本棚はまだ空です</p>
           <p className="muted">
             .md ファイルを選ぶか、この画面にドラッグしてください。
+            <br />
+            スマートフォンでは「ファイル」アプリから選べます。
             <br />
             文章を貼り付けて1冊にすることもできます。
           </p>
