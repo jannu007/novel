@@ -21,7 +21,13 @@ import { clearLibrary, deleteBook, listBooks, saveBook, type BookRecord } from '
 import { downloadSource, makeBook, readBookFiles, takeSharedFiles } from '../import';
 import { readingMinutes } from '../book';
 import { SAMPLE_BOOK, SAMPLE_FILE_NAME } from '../sample';
-import { chromeIntentUrl, copyPageUrl, isAndroid, isInAppBrowser } from '../browser';
+import {
+  chromeIntentUrl,
+  copyPageUrl,
+  isAndroid,
+  isInAppBrowser,
+  refreshApp,
+} from '../browser';
 
 const SEEDED_KEY = 'shiori:seeded';
 const NOTICE_KEY = 'shiori:inapp-notice-closed';
@@ -310,6 +316,8 @@ export default function Library() {
               保存データ
             </button>
           </div>
+          {/* いま動いている版。古い版が残っていないかを、開かずに確かめられる。 */}
+          <p className="lib-version">版 {__BUILD_ID__}</p>
         </>
       )}
 
@@ -369,6 +377,14 @@ export default function Library() {
           元のファイルは各本の保存ボタンからいつでも取り出せます。
         </p>
         <p className="muted small">版：{__BUILD_ID__}</p>
+        <p>
+          直したはずのものが直っていないときは、古い版が端末に残っていることがあります。
+          下のボタンで、アプリの控えを捨てて最新の版を取り直せます
+          （本棚の中身はそのまま残ります）。
+        </p>
+        <button className="btn" onClick={() => refreshApp()}>
+          最新の版にする
+        </button>
         <button
           className="btn btn-danger"
           onClick={async () => {
