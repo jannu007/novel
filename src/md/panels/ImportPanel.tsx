@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { readDroppedFiles } from '../assets';
 import { chromeIntentUrl, isAndroid, isInAppBrowser, isStandalone } from '../browser';
 import { useInstallPrompt } from '../../lib/useInstallPrompt';
@@ -50,47 +50,15 @@ const TEXT_ACCEPT = '.md,.markdown,.mdown,.mkd,.mdtext,.txt,.text,text/markdown,
 export default function ImportPanel({ source, onSource, onFiles, onDone, ready }: Props) {
   const [over, setOver] = useState(false);
   const [note, setNote] = useState('');
-  const [pickFailed, setPickFailed] = useState(false);
   const [clipboardFailed, setClipboardFailed] = useState(false);
   const [inApp] = useState(isInAppBrowser);
   const { canInstall, promptInstall } = useInstallPrompt();
   const textarea = useRef<HTMLTextAreaElement>(null);
 
-  /** ファイル選択を開いたか（何も選ばずに戻ってきたのを見つけるため）。 */
-  const picking = useRef(false);
-  const picked = useRef(false);
-
-  const markPicking = useCallback(() => {
-    setPickFailed(false);
-    picking.current = true;
-    picked.current = false;
-  }, []);
-
-  // 選択画面から何も選ばずに戻ってきたら、別の入れ方を出す。
-  // 画面に戻ってきたことは、端末によって focus と visibilitychange のどちらかで分かる。
-  useEffect(() => {
-    const onBack = () => {
-      if (!picking.current) return;
-      if (document.visibilityState === 'hidden') return;
-      picking.current = false;
-      window.setTimeout(() => {
-        if (!picked.current) setPickFailed(true);
-      }, 900);
-    };
-    window.addEventListener('focus', onBack);
-    document.addEventListener('visibilitychange', onBack);
-    return () => {
-      window.removeEventListener('focus', onBack);
-      document.removeEventListener('visibilitychange', onBack);
-    };
-  }, []);
-
   const take = useCallback(
     async (list: FileList | File[] | null) => {
       const files = list ? [...list] : [];
       if (files.length === 0) return;
-      picked.current = true;
-      setPickFailed(false);
 
       const loaded = await readDroppedFiles(files);
       if (!loaded.text && loaded.imageCount === 0) {
@@ -207,13 +175,12 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
             （JavaScriptから開くと、はじかれる端末がある）。
 
           それでも、選択画面そのものを用意しているのは端末側なので、
-          「カメラしか出ない」ことは起こりうる。そのときのために、
-          貼り付けと「共有から渡す」道を上と下に置いてある。
+          選べないことは起こりうる。そのときのために、貼り付けと
+          「共有から渡す」道を上と下に置いてある。
         */}
         <label
           className={`dropzone${over ? ' over' : ''}`}
           htmlFor="md-pick"
-          onClick={markPicking}
           onDragOver={(e) => {
             e.preventDefault();
             setOver(true);
@@ -236,24 +203,16 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
         <input id="md-pick-image" type="file" accept="image/*" multiple hidden onChange={onPicked} />
 
         <div className="btn-row" style={{ marginTop: 12 }}>
-          <label className="btn ghost" htmlFor="md-pick-multi" onClick={markPicking}>
+          <label className="btn ghost" htmlFor="md-pick-multi">
             まとめて選ぶ
           </label>
-          <label className="btn ghost" htmlFor="md-pick-plain" onClick={markPicking}>
+          <label className="btn ghost" htmlFor="md-pick-plain">
             種類を指定せずに選ぶ
           </label>
-          <label className="btn ghost" htmlFor="md-pick-image" onClick={markPicking}>
+          <label className="btn ghost" htmlFor="md-pick-image">
             挿絵の画像を足す
           </label>
         </div>
-
-        {isAndroid() && (
-          <p className="hint" style={{ marginTop: 10 }}>
-            <b>候補に「カメラ」しか出ないときは、</b>
-            端末のファイル選択のしくみによるもので、製本所からは変えられません。
-            上の「貼り付ける」か、下の「共有から渡す」をお使いください。
-          </p>
-        )}
 
         <p className="hint" style={{ marginTop: 10 }}>
           画像も入れておくと、本文の <code>![](ファイル名)</code> がその画像になります。
@@ -261,35 +220,6 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
         </p>
 
         {note && <div className="notice info">{note}</div>}
-
-        {pickFailed && (
-          <div className="notice">
-            <span aria-hidden="true">⚑</span>
-            <div>
-              <b>ファイルを選べましたか？</b>
-              <span>
-                候補に「カメラ」しか出ないのは、端末のファイルアプリがこの求めに応じていないためで、
-                製本所からは変えられません。次のどれかで確実に渡せます。
-              </span>
-              <div className="btn-row">
-                <button className="btn primary" onClick={pasteFromClipboard}>
-                  写した文章を貼り付ける
-                </button>
-                <label className="btn" htmlFor="md-pick-plain" onClick={markPicking}>
-                  種類を指定せずに選び直す
-                </label>
-                {isAndroid() && !isStandalone() && (
-                  <a className="btn" href={chromeIntentUrl()}>
-                    Chromeで開く
-                  </a>
-                )}
-                <button className="btn ghost" onClick={() => setPickFailed(false)}>
-                  閉じる
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="card">
@@ -297,7 +227,7 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
         <p className="hint">
           製本所を<b>アプリとして入れておく</b>と、端末の「マイファイル」やメモ帳から
           <b>共有 → 製本所</b>で原稿をそのまま渡せます。ファイル選択の画面を通らないので、
-          カメラしか出ない端末でも確実です。
+          どの端末でも確実です。
         </p>
         <ol className="hint" style={{ paddingLeft: '1.3em' }}>
           <li>この画面をアプリとして入れる（下のボタン、またはブラウザのメニューから「ホーム画面に追加」）</li>
