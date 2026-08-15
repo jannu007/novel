@@ -693,10 +693,17 @@ export default function Reader() {
                         <ol>
                           {frontToc.map((entry, n) => (
                             <li key={n}>
+                              {/*
+                                押した合図が背後のページ送りにも伝わると、
+                                飛んだ直後にページがめくれてしまう。ここで止める。
+                              */}
                               <button
-                                onClick={() =>
-                                  jumpTo({ chapter: entry.chapter, anchor: entry.id })
-                                }
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onPointerUp={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  jumpTo({ chapter: entry.chapter, anchor: entry.id });
+                                }}
                               >
                                 <span>{entry.title || '（無題）'}</span>
                                 <em>{tocPages(entry) ?? ''}</em>
