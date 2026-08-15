@@ -172,3 +172,36 @@ export function safeFileName(name: string, fallback = 'book'): string {
     .slice(0, 80);
   return cleaned || fallback;
 }
+
+/**
+ * 他のアプリから「共有」で送られてきたファイルを受け取る。
+ *
+ * スマートフォンでは、ファイル選択の画面にファイルアプリが出てこない端末がある
+ * （候補がカメラと写真だけになる）。これはページ側からは変えられないので、
+ * 逆向きの道――ファイルアプリ側から「共有 → 製本所」――を用意している。
+ * サービスワーカーが受け取って一時置き場に入れたものを、ここで取り出して消す。
+ */
+export async function takeSharedFiles(): Promise<File[]> {
+  if (!('caches' in window)) return [];
+  try {
+    const cache = await caches.open('seihonjo-share');
+    const keys = await cache.keys();
+    const files: File[] = [];
+    for (const key of keys) {
+      const res = await cache.match(key);
+      await cache.delete(key);
+      if (!res) continue;
+      const raw = res.headers.get('X-File-Name');
+      let name = '共有された文章.md';
+      try {
+        if (raw) name = decodeURIComponent(raw);
+      } catch {
+        /* 名前が読めなければ既定の名前のままにする */
+      }
+      files.push(new File([await res.blob()], name));
+    }
+    return files;
+  } catch {
+    return [];
+  }
+}

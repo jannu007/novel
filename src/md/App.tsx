@@ -3,7 +3,7 @@ import { analyzeScene } from './analyze';
 import { renderCover } from './artwork';
 import { buildBook, DEFAULT_OPTIONS, type BookMeta, type BookOptions } from './book';
 import { blocksToText, parseMarkdown } from './markdown';
-import type { PreparedImage } from './assets';
+import { readDroppedFiles, takeSharedFiles, type PreparedImage } from './assets';
 import {
   applyTheme,
   clearDraft,
@@ -147,15 +147,41 @@ export default function App() {
     setPrinting(true);
   }, [book, bookProfile, userCover, coverLayout, artSeed]);
 
-  const handleFiles = (
-    text: string,
-    nextAssets: Map<string, string>,
-    _names: string[],
-    _skipped: string[]
-  ) => {
-    setAssets((prev) => new Map([...prev, ...nextAssets]));
-    if (text) setSource((prev) => (prev.trim() ? `${prev}\n\n${text}` : text));
-  };
+  const handleFiles = useCallback(
+    (text: string, nextAssets: Map<string, string>) => {
+      setAssets((prev) => new Map([...prev, ...nextAssets]));
+      if (text) setSource((prev) => (prev.trim() ? `${prev}\n\n${text}` : text));
+    },
+    []
+  );
+
+  /** 外から渡されたファイル（共有・「このアプリで開く」）を取り込む。 */
+  const acceptFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+      const loaded = await readDroppedFiles(files);
+      handleFiles(loaded.text, loaded.assets);
+      if (loaded.text) setTab('structure');
+    },
+    [handleFiles]
+  );
+
+  // 他のアプリから「共有」で送られてきた原稿を受け取る
+  useEffect(() => {
+    void takeSharedFiles().then(acceptFiles);
+  }, [acceptFiles]);
+
+  // OSから「このアプリで開く」を選んだときに受け取る（対応しているブラウザのみ）
+  useEffect(() => {
+    const queue = (window as unknown as { launchQueue?: LaunchQueue }).launchQueue;
+    if (!queue?.setConsumer) return;
+    queue.setConsumer(async (params) => {
+      if (!params.files?.length) return;
+      const files: File[] = [];
+      for (const handle of params.files) files.push(await handle.getFile());
+      await acceptFiles(files);
+    });
+  }, [acceptFiles]);
 
   const ready = Boolean(book);
 
@@ -287,4 +313,13 @@ export default function App() {
       {printing && book && <PrintRoot book={book} coverDataUrl={printCover} />}
     </>
   );
+}
+
+/** 「このアプリで開く」で渡されるファイル（対応しているブラウザのみ）。 */
+interface LaunchParams {
+  files?: FileSystemFileHandle[];
+}
+
+interface LaunchQueue {
+  setConsumer(consumer: (params: LaunchParams) => void): void;
 }
