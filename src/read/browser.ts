@@ -1,0 +1,67 @@
+/**
+ * いま開いている「入れもの」を見分ける。
+ *
+ * LINEやメールなどのアプリの中で開いた画面（アプリ内ブラウザ）では、
+ * ファイル選択のしくみを**そのアプリ自身が用意している**ため、
+ * 「カメラ」と「写真」しか出てこないことがある。これはページ側からは変えられない。
+ * そこで、そういう画面だと分かるときは、ふつうのブラウザで開き直す道を案内する。
+ */
+
+/** アプリ内ブラウザ（の可能性が高い）か。 */
+export function isInAppBrowser(): boolean {
+  const ua = navigator.userAgent;
+  // Androidのアプリ内ブラウザ（WebView）は UA に "; wv)" が入る
+  if (/;\s*wv\)/.test(ua)) return true;
+  // よく使われるアプリの内蔵ブラウザ
+  if (/(FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|KAKAOTALK|Twitter)/i.test(ua)) {
+    return true;
+  }
+  // iOSでSafari以外のWebKit（＝アプリ内ブラウザ）
+  if (/iPhone|iPad|iPod/.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) {
+    return true;
+  }
+  return false;
+}
+
+export function isAndroid(): boolean {
+  return /Android/.test(navigator.userAgent);
+}
+
+/**
+ * Android で、いまのページを Chrome 本体で開き直すためのリンク。
+ * アプリ内ブラウザから抜け出すのに使う（対応していない端末では元のページに戻る）。
+ */
+export function chromeIntentUrl(): string {
+  const url = new URL(window.location.href);
+  const fallback = encodeURIComponent(url.href);
+  return (
+    `intent://${url.host}${url.pathname}${url.search}${url.hash}` +
+    `#Intent;scheme=https;package=com.android.chrome;` +
+    `S.browser_fallback_url=${fallback};end`
+  );
+}
+
+/** いまのページのURLを写す。写せたら true。 */
+export async function copyPageUrl(): Promise<boolean> {
+  const url = window.location.href;
+  try {
+    await navigator.clipboard.writeText(url);
+    return true;
+  } catch {
+    // クリップボードが使えない環境向けの手当て
+    try {
+      const area = document.createElement('textarea');
+      area.value = url;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand('copy');
+      area.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
