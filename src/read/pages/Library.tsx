@@ -21,8 +21,10 @@ import { clearLibrary, deleteBook, listBooks, saveBook, type BookRecord } from '
 import { downloadSource, makeBook, readBookFiles, takeSharedFiles } from '../import';
 import { readingMinutes } from '../book';
 import { SAMPLE_BOOK, SAMPLE_FILE_NAME } from '../sample';
+import { chromeIntentUrl, copyPageUrl, isAndroid, isInAppBrowser } from '../browser';
 
 const SEEDED_KEY = 'shiori:seeded';
+const NOTICE_KEY = 'shiori:inapp-notice-closed';
 
 export default function Library() {
   const navigate = useNavigate();
@@ -35,6 +37,11 @@ export default function Library() {
   const { canInstall, promptInstall } = useInstallPrompt();
   const [pasted, setPasted] = useState('');
   const [pastedTitle, setPastedTitle] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [inApp] = useState(isInAppBrowser);
+  const [noticeClosed, setNoticeClosed] = useState(
+    () => localStorage.getItem(NOTICE_KEY) === '1'
+  );
   const fileInput = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -153,6 +160,52 @@ export default function Library() {
           e.target.value = '';
         }}
       />
+
+      {/*
+        アプリ内ブラウザでは、ファイル選択の候補がカメラと写真だけになることがある
+        （選択のしくみを親アプリが用意しているため、ページ側では変えられない）。
+        気づけるように知らせ、ふつうのブラウザで開き直す道を出しておく。
+      */}
+      {inApp && !noticeClosed && (
+        <div className="notice">
+          <p>
+            <strong>アプリ内のブラウザで開いています。</strong>
+            この画面ではファイルを選べないことがあります（候補にカメラしか出ない場合）。
+            ふつうのブラウザで開き直すと選べるようになります。
+          </p>
+          <div className="notice-actions">
+            {isAndroid() && (
+              <a className="btn btn-sm btn-primary" href={chromeIntentUrl()}>
+                Chromeで開く
+              </a>
+            )}
+            <button
+              className="btn btn-sm"
+              onClick={async () => {
+                setCopied(await copyPageUrl());
+              }}
+            >
+              {copied ? 'コピーしました' : 'リンクをコピー'}
+            </button>
+            <button className="btn btn-sm btn-ghost" onClick={() => setSheet('howto')}>
+              ほかの入れ方
+            </button>
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={() => {
+                setNoticeClosed(true);
+                try {
+                  localStorage.setItem(NOTICE_KEY, '1');
+                } catch {
+                  /* 覚えられなくても閉じられればよい */
+                }
+              }}
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
 
       {errors.length > 0 && (
         <div className="alert">
@@ -331,8 +384,25 @@ export default function Library() {
           <li>
             <strong>選ぶ画面にカメラしか出ないとき</strong>
             <br />
-            出てきたシートを<strong>上へスワイプ</strong>すると、「ファイル」「マイファイル」
-            「ドライブ」などが現れます。それでも出ないときは、下の2つの方法が確実です。
+            LINEやメールなどの<strong>アプリの中で開いている</strong>と、そのアプリが
+            用意した選択画面になり、カメラと写真しか出ないことがあります。
+            ふつうのブラウザ（Chrome・Safariなど）で開き直すと選べるようになります。
+            <br />
+            <span className="notice-actions">
+              {isAndroid() && (
+                <a className="btn btn-sm btn-primary" href={chromeIntentUrl()}>
+                  Chromeで開く
+                </a>
+              )}
+              <button
+                className="btn btn-sm"
+                onClick={async () => {
+                  setCopied(await copyPageUrl());
+                }}
+              >
+                {copied ? 'コピーしました' : 'リンクをコピー'}
+              </button>
+            </span>
           </li>
           <li>
             <strong>ファイルアプリから送る（おすすめ）</strong>
