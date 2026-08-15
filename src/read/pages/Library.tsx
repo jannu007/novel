@@ -559,6 +559,29 @@ export default function Library() {
           栞はホーム画面やデスクトップに入れて、ふつうのアプリと同じように使えます。
           入れておくと、アドレスバーのない全画面で開き、電波がなくても本棚を開けます。
         </p>
+        {isAndroid() && (
+          <div className="notice">
+            <p>
+              <strong>ダウンロードは始まるのに入らないときは。</strong>
+              LINEやメールなどの<strong>アプリの中で開いた画面からは、入れられない</strong>
+              ことがあります（端末がインストールを止めるため）。
+              先にChromeで開き直してから、あらためて入れてください。
+            </p>
+            <div className="notice-actions">
+              <a className="btn btn-sm btn-primary" href={chromeIntentUrl()}>
+                Chromeで開く
+              </a>
+              <button
+                className="btn btn-sm"
+                onClick={async () => {
+                  setCopied(await copyPageUrl());
+                }}
+              >
+                {copied ? 'コピーしました' : 'リンクをコピー'}
+              </button>
+            </div>
+          </div>
+        )}
         {canInstall && (
           <button className="btn btn-primary" onClick={promptInstall}>
             <InstallIcon />

@@ -8,7 +8,7 @@
  *   （端末のファイル選択に「ファイル」が出てこないときの入り口になる）
  */
 
-const CACHE_NAME = 'shiori-v3';
+const CACHE_NAME = 'shiori-v4';
 /** 共有で受け取ったファイルを、アプリが拾うまで一時的に置いておく場所。 */
 const SHARE_CACHE = 'shiori-share';
 
@@ -84,6 +84,13 @@ self.addEventListener('fetch', (event) => {
 
   // 自分自身のファイル以外は仲介しない（外部への通信はそもそも行わない）
   if (url.origin !== self.location.origin) return;
+
+  /*
+   * アプリの説明書き（manifest）は仲介しない。
+   * ここを控えから返すと、ブラウザが古い内容を見てアプリを組み立てようとし、
+   * インストールに失敗することがあるため、必ず取り立てのものを使わせる。
+   */
+  if (url.pathname.endsWith('.webmanifest')) return;
 
   event.respondWith(
     fetch(request)
