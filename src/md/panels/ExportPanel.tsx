@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { saveAs } from 'file-saver';
+import { canShareFile, downloadBlob, shareFile, type Saveable } from '../save';
 import type { Book } from '../book';
 import type { SceneProfile } from '../analyze';
 import { renderChapterArt, renderCover, type RenderedImage } from '../artwork';
@@ -35,6 +35,8 @@ export default function ExportPanel({
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState('');
   const [error, setError] = useState('');
+  /** 組み立て終わったファイル。保存はここから何度でもやり直せる。 */
+  const [made, setMade] = useState<Saveable | null>(null);
   const [trim, setTrim] = useState<TrimName>('p6x9');
 
   const fileBase = safeFileName(book.meta.title, 'book');
@@ -84,15 +86,28 @@ export default function ExportPanel({
     return { cover, chapterArt };
   };
 
-  const run = async (label: string, task: () => Promise<void>) => {
+  /**
+   * 本を組み立て、できたファイルを手元に置く。
+   * 保存（端末へ渡すところ）は、そのあと利用者が押したときに行う。
+   * スマートフォンでは、押した直後でないと「共有」に渡せないため。
+   */
+  const run = async (label: string, task: () => Promise<Saveable>) => {
     setBusy(label);
     setProgress(0);
     setDone('');
     setError('');
+    setMade(null);
     try {
       await breathe();
-      await task();
-      setDone(`${label}を書き出しました。`);
+      const item = await task();
+      setMade(item);
+      // まずはふつうの保存を試す（パソコンなら、これで終わる）
+      const started = downloadBlob(item);
+      setDone(
+        started
+          ? `${item.name} ができました。保存されないときは、下のボタンからどうぞ。`
+          : `${item.name} ができました。下のボタンから保存してください。`
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : '書き出しに失敗しました。');
     } finally {
@@ -105,14 +120,14 @@ export default function ExportPanel({
     run('EPUB', async () => {
       const artwork = await makeArtwork(true);
       const blob = await buildEpub(book, artwork);
-      saveAs(blob, `${fileBase}.epub`);
+      return { blob, name: `${fileBase}.epub` };
     });
 
   const exportDocx = () =>
     run('Word（DOCX）', async () => {
       const artwork = await makeArtwork(true);
       const blob = await buildDocx(book, artwork, { trim, vertical: book.options.vertical });
-      saveAs(blob, `${fileBase}.docx`);
+      return { blob, name: `${fileBase}.docx` };
     });
 
   const exportCover = () =>
@@ -120,7 +135,10 @@ export default function ExportPanel({
       const artwork = await makeArtwork(false);
       if (!artwork.cover) throw new Error('表紙を作れませんでした。');
       const ext = artwork.cover.mime === 'image/png' ? 'png' : 'jpg';
-      saveAs(new Blob([artwork.cover.bytes as BlobPart], { type: artwork.cover.mime }), `${fileBase}-cover.${ext}`);
+      return {
+        blob: new Blob([artwork.cover.bytes as BlobPart], { type: artwork.cover.mime }),
+        name: `${fileBase}-cover.${ext}`,
+      };
     });
 
   const exportText = () =>
@@ -129,10 +147,10 @@ export default function ExportPanel({
       for (const chapter of book.chapters) {
         parts.push('', chapter.title, '', blocksToText(chapter.blocks));
       }
-      saveAs(
-        new Blob([parts.join('\n')], { type: 'text/plain;charset=utf-8' }),
-        `${fileBase}.txt`
-      );
+      return {
+        blob: new Blob([parts.join('\n')], { type: 'text/plain;charset=utf-8' }),
+        name: `${fileBase}.txt`,
+      };
     });
 
   const checks = buildChecks(book, userCover);
@@ -157,6 +175,27 @@ export default function ExportPanel({
         )}
         {done && <div className="notice ok" style={{ marginTop: 12 }}>{done}</div>}
         {error && <div className="notice" style={{ marginTop: 12 }}>{error}</div>}
+
+        {made && !busy && (
+          <div className="btn-row" style={{ marginTop: 12 }}>
+            <button className="btn" onClick={() => downloadBlob(made)}>
+              保存する
+            </button>
+            {canShareFile(made) && (
+              <button
+                className="btn"
+                onClick={async () => {
+                  const result = await shareFile(made, book.meta.title);
+                  if (result === 'failed') {
+                    setError('共有に渡せませんでした。「保存する」をお試しください。');
+                  }
+                }}
+              >
+                共有して保存
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="btn-row" style={{ marginTop: 14 }}>
           <button className="btn primary" onClick={exportEpub} disabled={Boolean(busy)}>
