@@ -36,6 +36,12 @@ function devCsp(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [react(), devCsp()],
+  // どの版が動いているかを画面で確かめられるようにする（栞の「保存データ」に出る）
+  define: {
+    __BUILD_ID__: JSON.stringify(
+      new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+    ),
+  },
   build: {
     rollupOptions: {
       input: {

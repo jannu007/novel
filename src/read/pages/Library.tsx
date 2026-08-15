@@ -18,7 +18,7 @@ import {
 } from '../components/Icons';
 import { useInstallPrompt } from '../../lib/useInstallPrompt';
 import { clearLibrary, deleteBook, listBooks, saveBook, type BookRecord } from '../db';
-import { downloadSource, makeBook, readBookFiles } from '../import';
+import { downloadSource, makeBook, readBookFiles, takeSharedFiles } from '../import';
 import { readingMinutes } from '../book';
 import { SAMPLE_BOOK, SAMPLE_FILE_NAME } from '../sample';
 
@@ -29,7 +29,9 @@ export default function Library() {
   const [books, setBooks] = useState<BookRecord[] | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [dropping, setDropping] = useState(false);
-  const [sheet, setSheet] = useState<null | 'paste' | 'about' | 'manage' | 'install'>(null);
+  const [sheet, setSheet] = useState<
+    null | 'paste' | 'about' | 'manage' | 'install' | 'howto'
+  >(null);
   const { canInstall, promptInstall } = useInstallPrompt();
   const [pasted, setPasted] = useState('');
   const [pastedTitle, setPastedTitle] = useState('');
@@ -68,6 +70,13 @@ export default function Library() {
     },
     [navigate, refresh]
   );
+
+  // 他のアプリから「共有」で送られてきたファイルを拾う
+  useEffect(() => {
+    takeSharedFiles().then((files) => {
+      if (files.length > 0) addFiles(files);
+    });
+  }, [addFiles]);
 
   // OSから「このアプリで開く」を選んだときに受け取る（対応しているブラウザのみ）
   useEffect(() => {
@@ -235,6 +244,9 @@ export default function Library() {
               <PasteIcon />
               貼り付けて作る
             </button>
+            <button className="btn btn-ghost" onClick={() => setSheet('howto')}>
+              本の入れ方
+            </button>
             {!isStandalone() && (
               <button className="btn btn-ghost" onClick={() => setSheet('install')}>
                 <InstallIcon />
@@ -293,6 +305,7 @@ export default function Library() {
         <p className="muted">
           元のファイルは各本の保存ボタンからいつでも取り出せます。
         </p>
+        <p className="muted small">版：{__BUILD_ID__}</p>
         <button
           className="btn btn-danger"
           onClick={async () => {
@@ -305,6 +318,43 @@ export default function Library() {
           <TrashIcon />
           すべての本を削除する
         </button>
+      </Sheet>
+
+      {/* ---- 本の入れ方 ---- */}
+      <Sheet open={sheet === 'howto'} title="本の入れ方" onClose={() => setSheet(null)}>
+        <ul className="about">
+          <li>
+            <strong>ファイルを選ぶ</strong>
+            <br />
+            上の「本を追加」から選びます。まとめて選ぶこともできます。
+          </li>
+          <li>
+            <strong>選ぶ画面にカメラしか出ないとき</strong>
+            <br />
+            出てきたシートを<strong>上へスワイプ</strong>すると、「ファイル」「マイファイル」
+            「ドライブ」などが現れます。それでも出ないときは、下の2つの方法が確実です。
+          </li>
+          <li>
+            <strong>ファイルアプリから送る（おすすめ）</strong>
+            <br />
+            端末の「ファイル」アプリで .md を選び、<strong>共有 → 栞</strong> を選びます。
+            アプリとして入れてあるときに使えます。
+          </li>
+          <li>
+            <strong>貼り付ける</strong>
+            <br />
+            文章をコピーして「貼り付けて作る」に貼れば、それだけで1冊になります。
+          </li>
+          <li>
+            <strong>パソコンでは</strong>
+            <br />
+            本棚の画面にファイルをドラッグ＆ドロップできます。
+          </li>
+        </ul>
+        <p className="muted">
+          取り込めるのは文章のファイルです（.md・.txt など。拡張子がなくても、
+          文字として読めれば取り込めます）。
+        </p>
       </Sheet>
 
       {/* ---- インストールの案内 ---- */}
