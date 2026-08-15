@@ -306,6 +306,11 @@ main {
   transform: scale(0.98);
 }
 
+/* リンクをボタンとして使うところ（保存など）は、下線を出さない */
+a.btn {
+  text-decoration: none;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: default;
@@ -810,6 +815,34 @@ textarea:focus {
 
 .reader-nav select {
   flex: 1;
+}
+
+/* ------------------------------------------------------ できあがりの受け渡し */
+
+.save-box {
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+}
+
+.save-box > b {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--ok);
+  font-size: 14px;
+}
+
+.save-box .btn {
+  min-height: 42px;
+}
+
+.save-message {
+  display: block;
+  margin-top: 10px;
+  color: var(--warn);
+  font-size: 12.5px;
 }
 
 /* ---------------------------------------------------------------- 進捗 */
