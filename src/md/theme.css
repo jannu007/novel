@@ -145,6 +145,17 @@ textarea {
   flex: 1;
 }
 
+/* 幅の狭い端末では、題字だけを残して1行に収める */
+@media (max-width: 430px) {
+  .brand small {
+    display: none;
+  }
+
+  .topbar .btn {
+    white-space: nowrap;
+  }
+}
+
 .tabs {
   position: sticky;
   top: 52px;
@@ -441,6 +452,21 @@ textarea:focus {
 
 .notice b {
   display: block;
+}
+
+/* 知らせの中の説明文は、行ごとに分けて読みやすくする */
+.notice > div > span {
+  display: block;
+}
+
+.notice .btn-row {
+  margin-top: 10px;
+}
+
+.notice .btn {
+  min-height: 38px;
+  padding: 8px 14px;
+  font-size: 13px;
 }
 
 /* ---------------------------------------------------------------- 取り込み */
