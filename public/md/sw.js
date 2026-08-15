@@ -94,12 +94,20 @@ self.addEventListener('fetch', (event) => {
   // 同じサイトのファイル以外には一切関与しない
   if (url.origin !== self.location.origin) return;
 
-  // 書き出した本の受け取り（ふつうのダウンロードとして返す）
+  // 書き出した本の受け取り（ふつうのダウンロードとして返す）。
+  // 渡し終わったら置き場から消す。端末の中に作品を残さないため。
   if (url.pathname.includes('/out/')) {
     event.respondWith(
       caches.open(OUT_CACHE).then(async (cache) => {
         const found = await cache.match(request.url);
-        return found ?? new Response('not found', { status: 404 });
+        if (!found) return new Response('not found', { status: 404 });
+        // 保存が終わるころに消す（受け取りの途中で消さないよう、少し待つ）
+        event.waitUntil(
+          new Promise((resolve) => setTimeout(resolve, 30000)).then(() =>
+            caches.delete(OUT_CACHE)
+          )
+        );
+        return found;
       })
     );
     return;

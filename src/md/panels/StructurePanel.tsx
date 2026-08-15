@@ -133,6 +133,9 @@ export default function StructurePanel({ book, options, onOptions, meta, onMeta 
             <span>題名</span>
             <input
               type="text"
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
               value={meta.title ?? book.meta.title}
               onChange={(e) => setMeta({ title: e.target.value })}
             />
@@ -141,6 +144,9 @@ export default function StructurePanel({ book, options, onOptions, meta, onMeta 
             <span>著者名</span>
             <input
               type="text"
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
               value={meta.author ?? book.meta.author}
               onChange={(e) => setMeta({ author: e.target.value })}
               placeholder="ペンネームでも構いません"
@@ -150,6 +156,9 @@ export default function StructurePanel({ book, options, onOptions, meta, onMeta 
             <span>副題（任意）</span>
             <input
               type="text"
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
               value={meta.subtitle ?? book.meta.subtitle}
               onChange={(e) => setMeta({ subtitle: e.target.value })}
             />
@@ -158,6 +167,9 @@ export default function StructurePanel({ book, options, onOptions, meta, onMeta 
             <span>ジャンル（任意）</span>
             <input
               type="text"
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
               value={meta.genre ?? book.meta.genre}
               onChange={(e) => setMeta({ genre: e.target.value })}
               placeholder="ファンタジー・恋愛 など"
@@ -168,6 +180,9 @@ export default function StructurePanel({ book, options, onOptions, meta, onMeta 
           <span>紹介文（任意・EPUBの説明に入ります）</span>
           <input
             type="text"
+            spellCheck={false}
+            autoComplete="off"
+            autoCorrect="off"
             value={meta.description ?? book.meta.description}
             onChange={(e) => setMeta({ description: e.target.value })}
           />

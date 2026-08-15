@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { countForeignResources } from '../browser';
+import { clearSavedFiles } from '../save';
 
 interface Props {
   keeping: boolean;
@@ -19,6 +20,8 @@ export default function SecurityPanel({
   hasDraft,
 }: Props) {
   const [foreign, setForeign] = useState<number | null>(null);
+  const [purging, setPurging] = useState(false);
+  const [purged, setPurged] = useState(false);
 
   useEffect(() => {
     setForeign(countForeignResources());
@@ -61,6 +64,26 @@ export default function SecurityPanel({
               既定では何も保存しません
               <small>
                 原稿はメモリの中だけにあり、タブを閉じれば消えます。下の設定を入れたときだけ、この端末の中に保存します。
+              </small>
+            </span>
+          </li>
+          <li className="ok">
+            <span className="mark">✓</span>
+            <span>
+              書き出した本を端末に残しません
+              <small>
+                保存のために一度だけ置いた本は、渡し終わったあと・画面を離れたとき・次に開いたときに消します。
+                受け取り口のURLにも題名を載せていないので、履歴に作品名が残りません。
+              </small>
+            </span>
+          </li>
+          <li className="ok">
+            <span className="mark">✓</span>
+            <span>
+              入力した文字を、外の校正・入力補助に渡しません
+              <small>
+                題名や著者名の欄で、ブラウザのつづり確認・自動入力・自動修正を切っています
+                （これらは端末の外に文字を送ることがあるため）。
               </small>
             </span>
           </li>
@@ -126,6 +149,43 @@ export default function SecurityPanel({
             保存したものを消す
           </button>
         </div>
+      </div>
+
+      <div className="card">
+        <h2>この端末から消す</h2>
+        <p className="hint">
+          原稿の控え・書き出した本・共有で受け取ったものを、まとめて消します。
+          人に端末を渡すときや、作業を終えたときにお使いください（アプリ自体は残るので、次も同じように使えます）。
+        </p>
+        <div className="btn-row">
+          <button
+            className="btn"
+            onClick={async () => {
+              setPurging(true);
+              await clearSavedFiles();
+              try {
+                if ('caches' in window) await caches.delete('seihonjo-share');
+              } catch {
+                /* 消せなくても続ける */
+              }
+              onClear();
+              setPurging(false);
+              setPurged(true);
+            }}
+            disabled={purging}
+          >
+            {purging ? '消しています…' : '残っているものを全部消す'}
+          </button>
+        </div>
+        {purged && (
+          <div className="notice ok" style={{ marginTop: 12 }}>
+            <span aria-hidden="true">✓</span>
+            <div>
+              <b>消しました。</b>
+              <span>この端末には、作品に関わるものは残っていません。</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card">

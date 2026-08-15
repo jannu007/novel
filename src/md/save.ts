@@ -59,7 +59,9 @@ export async function serviceWorkerUrlFor(item: Saveable): Promise<string | null
       ]);
       if (!navigator.serviceWorker.controller) return null;
     }
-    const url = new URL(`./out/${encodeURIComponent(item.name)}`, location.href).href;
+    // URLに題名を載せない（履歴や記録に作品名が残らないようにする）。
+    // ファイル名は、添える見出し（Content-Disposition）だけで伝える。
+    const url = new URL('./out/file', location.href).href;
     const cache = await caches.open('seihonjo-out');
     // 前に置いたものは残さない
     for (const key of await cache.keys()) await cache.delete(key);
@@ -76,6 +78,21 @@ export async function serviceWorkerUrlFor(item: Saveable): Promise<string | null
     return url;
   } catch {
     return null;
+  }
+}
+
+/**
+ * 端末に残っている書き出し済みの本を消す。
+ *
+ * 受け渡しのために置いたものが残っていると、それは端末の中に
+ * 作品がまるごと残っているのと同じことになる。渡し終わったら消す。
+ */
+export async function clearSavedFiles(): Promise<void> {
+  try {
+    if (!('caches' in window)) return;
+    await caches.delete('seihonjo-out');
+  } catch {
+    /* 消せなくても、次に書き出したときに入れ替わる */
   }
 }
 

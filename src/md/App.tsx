@@ -4,6 +4,7 @@ import { renderCover } from './artwork';
 import { buildBook, DEFAULT_OPTIONS, type BookMeta, type BookOptions } from './book';
 import { blocksToText, parseMarkdown } from './markdown';
 import { readDroppedFiles, takeSharedFiles, type PreparedImage } from './assets';
+import { clearSavedFiles } from './save';
 import {
   applyTheme,
   clearDraft,
@@ -55,16 +56,17 @@ export default function App() {
   const [printCover, setPrintCover] = useState<string | null>(null);
   const loaded = useRef(false);
 
-  // 端末に保存する設定なら、前回の続きを読み出す
+  // 端末に保存する設定なら、前回の続きを読み出す。
+  // その設定でないときは、置き場を作らないために触れもしない。
   useEffect(() => {
     if (loaded.current) return;
     loaded.current = true;
+    if (!isKeeping()) return;
     void (async () => {
       const draft = await loadDraft();
       if (!draft) return;
       setHasDraft(true);
       setSavedAt(draft.savedAt);
-      if (!isKeeping()) return;
       setSource(draft.source);
       setOptions(draft.options);
       setMeta(draft.meta);
@@ -166,6 +168,24 @@ export default function App() {
     },
     [handleFiles]
   );
+
+  /*
+   * 端末に残った書き出し済みの本を、起動時と画面を離れるときに消す。
+   * 受け渡しのために置いたものが残っていると、作品がまるごと端末に
+   * 残っているのと同じことになるため。
+   */
+  useEffect(() => {
+    void clearSavedFiles();
+    const onLeave = () => {
+      if (document.visibilityState === 'hidden') void clearSavedFiles();
+    };
+    window.addEventListener('pagehide', onLeave);
+    document.addEventListener('visibilitychange', onLeave);
+    return () => {
+      window.removeEventListener('pagehide', onLeave);
+      document.removeEventListener('visibilitychange', onLeave);
+    };
+  }, []);
 
   // 他のアプリから「共有」で送られてきた原稿を受け取る
   useEffect(() => {
