@@ -49,38 +49,11 @@ export default function Library() {
   const [noticeClosed, setNoticeClosed] = useState(
     () => localStorage.getItem(NOTICE_KEY) === '1'
   );
-  const [pickFailed, setPickFailed] = useState(false);
   const [clipboardFailed, setClipboardFailed] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  /** ファイル選択を開いたかどうか（何も選ばれずに戻ってきたのを見つけるため） */
-  const picking = useRef(false);
-  const picked = useRef(false);
 
   const refresh = useCallback(async () => {
     setBooks(await listBooks());
-  }, []);
-
-  /**
-   * ファイル選択を開いたことを覚えておく（押したのは <label>、開くのはブラウザ）。
-   * 何も選ばれずに戻ってきたときに、別の入れ方を案内するために使う。
-   */
-  const markPicking = useCallback(() => {
-    setPickFailed(false);
-    picking.current = true;
-    picked.current = false;
-  }, []);
-
-  useEffect(() => {
-    const onFocus = () => {
-      if (!picking.current) return;
-      picking.current = false;
-      // 選ばれていれば、少し遅れて change が走る
-      window.setTimeout(() => {
-        if (!picked.current) setPickFailed(true);
-      }, 900);
-    };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   useEffect(() => {
@@ -116,11 +89,7 @@ export default function Library() {
   /** どの入力欄から選ばれても、同じように取り込む。 */
   const onPicked = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files.length > 0) {
-        picked.current = true;
-        setPickFailed(false);
-        addFiles(e.target.files);
-      }
+      if (e.target.files && e.target.files.length > 0) addFiles(e.target.files);
       e.target.value = '';
     },
     [addFiles]
@@ -187,7 +156,7 @@ export default function Library() {
         <button className="icon-btn" onClick={() => setSheet('about')} aria-label="安全のしくみ">
           <ShieldIcon />
         </button>
-        <label className="btn btn-primary" htmlFor="shiori-pick" onClick={markPicking}>
+        <label className="btn btn-primary" htmlFor="shiori-pick">
           <PlusIcon />
           本を追加
         </label>
@@ -274,59 +243,6 @@ export default function Library() {
         </div>
       )}
 
-      {/*
-        選択画面から何も選ばずに戻ってきたとき。端末によっては候補に
-        カメラしか出ず、そもそも選べないので、その場で別の道を出す。
-      */}
-      {pickFailed && (
-        <div className="notice">
-          <p>
-            <strong>ファイルを選べましたか？</strong>
-            候補に「カメラ」しか出ないのは、端末のファイルアプリが
-            この求めに応じていないためで、栞からは変えられません。
-            {isStandalone()
-              ? '次の方法なら、選ぶ画面を通らずに入れられます。'
-              : '次のどれかでも本を入れられます。'}
-          </p>
-          {isStandalone() && (
-            <p className="muted">
-              <strong>おすすめ：</strong>端末の「マイファイル」で .md を長押しして
-              <strong>共有</strong>を選び、そこから<strong>栞</strong>を選んでください。
-              そのまま本棚に入ります。
-            </p>
-          )}
-          <div className="notice-actions">
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={() => {
-                setPickFailed(false);
-                setSheet('paste');
-              }}
-            >
-              <PasteIcon />
-              貼り付けて作る
-            </button>
-            <label className="btn btn-sm" htmlFor="shiori-pick-plain" onClick={markPicking}>
-              種類を指定せずに選び直す
-            </label>
-            <label className="btn btn-sm" htmlFor="shiori-pick-multi" onClick={markPicking}>
-              まとめて選ぶ
-            </label>
-            {isAndroid() && !isStandalone() && (
-              <a className="btn btn-sm" href={chromeIntentUrl()}>
-                Chromeで開く
-              </a>
-            )}
-            <button className="btn btn-sm btn-ghost" onClick={() => setSheet('howto')}>
-              ほかの入れ方
-            </button>
-            <button className="btn btn-sm btn-ghost" onClick={() => setPickFailed(false)}>
-              閉じる
-            </button>
-          </div>
-        </div>
-      )}
-
       {errors.length > 0 && (
         <div className="alert">
           {errors.map((message, i) => (
@@ -350,12 +266,12 @@ export default function Library() {
             <br />
             文章を貼り付けて1冊にすることもできます。
           </p>
-          <label className="dropzone" htmlFor="shiori-pick" onClick={markPicking}>
+          <label className="dropzone" htmlFor="shiori-pick">
             <strong>ここに .md / .txt をドロップ、またはタップして選択</strong>
             <span>端末の中だけで読み取ります。どこにも送信しません。</span>
           </label>
           <div className="empty-actions">
-            <label className="btn btn-primary" htmlFor="shiori-pick" onClick={markPicking}>
+            <label className="btn btn-primary" htmlFor="shiori-pick">
               <PlusIcon />
               ファイルを選ぶ
             </label>
@@ -421,7 +337,7 @@ export default function Library() {
             画面から消した入力欄をプログラムから押すのに比べ、
             Androidで本来の選択画面が出やすい。
           */}
-          <label className="dropzone" htmlFor="shiori-pick" onClick={markPicking}>
+          <label className="dropzone" htmlFor="shiori-pick">
             <strong>ここに .md / .txt をドロップ、またはタップして選択</strong>
             <span>端末の中だけで読み取ります。どこにも送信しません。</span>
           </label>
@@ -599,11 +515,18 @@ export default function Library() {
             先に「アプリとして入れる」をお試しください）。
           </li>
           <li>
-            <strong>選ぶ画面の種類を変えてみる</strong>
+            <strong>選ぶ画面の出方を変えてみる</strong>
             <br />
-            端末によっては、種類を指定したほうがファイルアプリが出てきます。
-            「本を追加」で選べなかったときに出る案内から、
-            「文章ファイルとして選び直す」を試せます。
+            候補にカメラしか出ないときは、条件を変えると出てくることがあります。
+            <br />
+            <span className="notice-actions">
+              <label className="btn btn-sm" htmlFor="shiori-pick-plain">
+                種類を指定せずに選ぶ
+              </label>
+              <label className="btn btn-sm" htmlFor="shiori-pick-multi">
+                まとめて選ぶ
+              </label>
+            </span>
           </li>
           <li>
             <strong>貼り付ける</strong>
