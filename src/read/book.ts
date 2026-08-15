@@ -137,9 +137,20 @@ function splitLongChapter(chapter: Chapter): Chapter[] {
 /** Markdown の原稿を本に組み立てる。 */
 export function buildBook(source: string, fallbackTitle: string): BookContent {
   const { meta, body } = splitFrontMatter(source);
-  const blocks = parseMarkdown(body);
+  const parsed = parseMarkdown(body);
 
-  const level = chapterLevel(blocks);
+  const level = chapterLevel(parsed);
+
+  /*
+   * 原稿の先頭にある、章より上の階層の見出しは「本の題名」なので、
+   * 本文からは外す。外さないと、目次にも本文の1ページ目にも
+   * 題名が二重に出てしまう（表紙と扉ですでに見せているため）。
+   */
+  const firstIndex = parsed.findIndex((b) => b.type !== 'hr');
+  const first = firstIndex >= 0 ? parsed[firstIndex] : undefined;
+  const titleHeading =
+    first && first.type === 'heading' && first.level < level ? first : null;
+  const blocks = titleHeading ? parsed.filter((_, i) => i !== firstIndex) : parsed;
   const toc: TocEntry[] = [];
   const chapters: Chapter[] = [];
   let current: Chapter | null = null;
@@ -185,10 +196,8 @@ export function buildBook(source: string, fallbackTitle: string): BookContent {
   for (const entry of toc) entry.chapter = remap.get(entry.id) ?? entry.chapter;
 
   // 書誌：フロントマター → 最初の見出し → ファイル名 の順に採用する
-  const firstHeading = blocks.find((b): b is Extract<Block, { type: 'heading' }> =>
-    b.type === 'heading'
-  );
-  const title = meta.title || (level > 1 && firstHeading ? firstHeading.plain : '') || fallbackTitle;
+  // 書誌：フロントマター → 本文から外した題名の見出し → ファイル名
+  const title = meta.title || titleHeading?.plain || fallbackTitle;
 
   return {
     title: title.trim() || fallbackTitle,

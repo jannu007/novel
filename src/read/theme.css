@@ -379,6 +379,15 @@ select {
   position: absolute;
   inset: 0;
 }
+/* 本の中身から描いた表紙 */
+.cover-art-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .cover-band {
   position: absolute;
   left: 0;

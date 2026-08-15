@@ -27,6 +27,7 @@ import {
 } from '../settings';
 import Sheet from '../components/Sheet';
 import Cover from '../components/Cover';
+import { useBookCover } from '../useBookCover';
 import { BackIcon, BookmarkIcon, SearchIcon, TocIcon } from '../components/Icons';
 
 /** これだけ指を動かせばページが変わる（画面幅に対する割合と、最低限の距離）。 */
@@ -95,6 +96,8 @@ export default function Reader() {
   const current = chapters[chapter];
   /** いま前付け（表紙・扉・目次）を開いているか */
   const isFront = chapter === FRONT;
+  /** この本の中身から描いた表紙 */
+  const coverUrl = useBookCover(record ?? null);
 
   /* ---------------- 読み込み ---------------- */
 
@@ -674,6 +677,7 @@ export default function Reader() {
                           title={record.title}
                           author={record.author}
                           seed={record.seed}
+                          imageUrl={coverUrl}
                         />
                       </div>
                     )}
