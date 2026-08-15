@@ -696,20 +696,15 @@ export default function Reader() {
             {settings.vertical ? '左から右へなぞると次のページ' : '右から左へなぞると次のページ'}
           </span>
           <span className="foot-rest">
-            <span>
-              {pages - page - 1 > 0
-                ? `この章 あと${pages - page - 1}ページ`
-                : chapter < chapters.length - 1
-                  ? 'この章の終わり'
-                  : '最後の章'}
-            </span>
-            <span>
-              {remaining === null
-                ? ''
-                : remaining.pages > 0
-                  ? `全体 あと${remaining.estimated ? '約' : ''}${remaining.pages}ページ`
-                  : '読了'}
-            </span>
+            {pages - page - 1 > 0
+              ? `この章 あと${pages - page - 1}ページ`
+              : chapter < chapters.length - 1
+                ? 'この章の終わり'
+                : '最後の章'}
+            {remaining !== null &&
+              (remaining.pages > 0
+                ? `（全体 あと${remaining.estimated ? '約' : ''}${remaining.pages}ページ）`
+                : '（読了）')}
           </span>
         </div>
       </footer>

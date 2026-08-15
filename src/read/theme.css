@@ -894,12 +894,8 @@ select {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-/* 右下の残りページ（この章／本全体） */
+/* 右下の残りページ（この章と本全体を1行で） */
 .foot-rest {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.35;
   white-space: nowrap;
 }
 @media (max-width: 480px) {
