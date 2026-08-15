@@ -1,9 +1,17 @@
 /**
  * Markdownファイルを本棚に取り込む処理。
  *
+ * ■ 「どのファイルを選べるか」の考え方
+ * ファイル選択の種類（accept）でしぼり込むと、スマートフォンによっては
+ * ファイルアプリそのものが選択肢から消えてしまい、**本を選べなくなる**。
+ * （Androidでは `.md` や `text/markdown` を知らない端末があるため）
+ * そこで選択のときは種類でしぼらず、選ばれたあとに
+ * **中身が文字として読めるか**で判断している。
+ *
  * ■ 安全のための確認
- * - 拡張子と大きさを確かめてから読む（巨大なファイルでブラウザが固まるのを防ぐ）
+ * - 大きさを確かめてから読む（巨大なファイルでブラウザが固まるのを防ぐ）
  * - 中身は必ず「文字」として読み、実行も評価も一切しない
+ * - 文字として読めないファイル（画像・PDF・ZIPなど）は、その場で断る
  * - 文字コードは UTF-8 を基本に、日本語で使われる Shift_JIS / EUC-JP も自動判別する
  */
 
@@ -13,13 +21,30 @@ import { seedOf, type BookRecord } from './db';
 /** 取り込めるファイルの上限（1冊あたり）。 */
 export const MAX_FILE_BYTES = 16 * 1024 * 1024;
 
-const ALLOWED_EXT = ['.md', '.markdown', '.mdown', '.mkd', '.mdtext', '.txt', '.text'];
+const TEXT_EXT = ['.md', '.markdown', '.mdown', '.mkd', '.mdtext', '.txt', '.text'];
 
 export class ImportError extends Error {}
 
+/** よくある本文ファイルの拡張子か（案内の文言を変えるためだけに使う）。 */
 export function isSupportedName(name: string): boolean {
   const lower = name.toLowerCase();
-  return ALLOWED_EXT.some((ext) => lower.endsWith(ext));
+  return TEXT_EXT.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * 文字として読めないファイル（画像・PDF・ZIPなど）かどうかを、先頭を見て判断する。
+ * 文字のデータには現れない値（NULや制御文字）が多ければ、文書ではないとみなす。
+ */
+export function looksBinary(bytes: ArrayBuffer): boolean {
+  const view = new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 4096));
+  if (view.length === 0) return false;
+  let control = 0;
+  for (const b of view) {
+    if (b === 0) return true;
+    // タブ・改行・復帰・改ページ以外の制御文字を数える
+    if (b < 9 || (b > 13 && b < 32)) control++;
+  }
+  return control / view.length > 0.05;
 }
 
 /**
@@ -72,15 +97,18 @@ export function makeBook(source: string, fileName: string): BookRecord {
 
 /** 選ばれたファイルを1冊の本に変換する。 */
 export async function readBookFile(file: File): Promise<BookRecord> {
-  if (!isSupportedName(file.name)) {
-    throw new ImportError(`${file.name} は取り込めません（.md か .txt を選んでください）`);
-  }
   if (file.size > MAX_FILE_BYTES) {
     throw new ImportError(
       `${file.name} は大きすぎます（上限 ${Math.floor(MAX_FILE_BYTES / 1024 / 1024)}MB）`
     );
   }
   const buffer = await file.arrayBuffer();
+  // 拡張子ではなく中身で判断する。ファイル選択の種類をしぼらないぶん、ここで確かめる。
+  if (looksBinary(buffer)) {
+    throw new ImportError(
+      `${file.name} は文字として読めないファイルでした（.md や .txt などの文章のファイルを選んでください）`
+    );
+  }
   const source = decodeText(buffer);
   if (source.trim() === '') throw new ImportError(`${file.name} は中身が空でした`);
   return makeBook(source, file.name);
