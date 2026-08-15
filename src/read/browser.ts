@@ -72,6 +72,30 @@ export async function refreshApp(): Promise<void> {
   window.location.replace(url.href);
 }
 
+/**
+ * この画面を開いてから、外部（別のサイト）へ行った通信の数を数える。
+ *
+ * ブラウザが記録している読み込みの一覧から、自分のサイト以外のものを数えるだけ。
+ * 栞は通信を行わないので、ここは 0 のままになる。
+ * 「本当に外に出ていないのか」を、利用者が自分の目で確かめられるようにするためのもの。
+ */
+export function countExternalRequests(): number {
+  try {
+    const here = window.location.origin;
+    return performance
+      .getEntriesByType('resource')
+      .filter((entry) => {
+        try {
+          return new URL(entry.name, here).origin !== here;
+        } catch {
+          return false;
+        }
+      }).length;
+  } catch {
+    return 0;
+  }
+}
+
 /** いまのページのURLを写す。写せたら true。 */
 export async function copyPageUrl(): Promise<boolean> {
   const url = window.location.href;
