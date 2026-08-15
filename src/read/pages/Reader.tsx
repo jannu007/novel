@@ -26,6 +26,8 @@ import {
   type Palette,
 } from '../settings';
 import Sheet from '../components/Sheet';
+import Cover from '../components/Cover';
+import { useBookCover } from '../useBookCover';
 import { BackIcon, BookmarkIcon, SearchIcon, TocIcon } from '../components/Icons';
 
 /** これだけ指を動かせばページが変わる（画面幅に対する割合と、最低限の距離）。 */
@@ -39,13 +41,23 @@ type SheetKind = null | 'toc' | 'settings' | 'search' | 'marks';
 /** 「組み直したら、その章の最後のページを開く」という目印。 */
 const LAST_PAGE = -1;
 
+/**
+ * 本文の前に置く「前付け」。紙の本と同じ並びにする。
+ *   1ページ目 … 表紙
+ *   2ページ目 … 題名（扉）
+ *   3ページ目 … 目次
+ * 章の番号として -1 を割り当て、本文の章（0以上）と同じしくみで行き来する。
+ */
+const FRONT = -1;
+const FRONT_PAGES = 3;
+
 export default function Reader() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { settings, update } = useSettings();
 
   const [record, setRecord] = useState<BookRecord | null | undefined>(undefined);
-  const [chapter, setChapter] = useState(0);
+  const [chapter, setChapter] = useState(FRONT);
   const [page, setPage] = useState(0);
   const [layout, setLayout] = useState<PageLayout | null>(null);
   const [stage, setStage] = useState<{ w: number; h: number } | null>(null);
@@ -82,6 +94,10 @@ export default function Reader() {
   );
   const chapters = useMemo(() => book?.chapters ?? [], [book]);
   const current = chapters[chapter];
+  /** いま前付け（表紙・扉・目次）を開いているか */
+  const isFront = chapter === FRONT;
+  /** この本の中身から描いた表紙 */
+  const coverUrl = useBookCover(record ?? null);
 
   /* ---------------- 読み込み ---------------- */
 
@@ -135,8 +151,25 @@ export default function Reader() {
   /* ---------------- ページ割り ---------------- */
 
   useEffect(() => {
+    if (!metrics) return;
+    if (isFront) {
+      // 前付けは組む必要がないので、3ページぶんの割り付けをそのまま作る
+      const step = metrics.step;
+      setLayout({
+        pages: FRONT_PAGES,
+        pageStarts: [0, step, step * 2],
+        pageEnds: [metrics.pageWidth, step + metrics.pageWidth, step * 2 + metrics.pageWidth],
+        blockPages: [],
+        anchors: new Map(),
+      });
+      const keep = keepBlock.current;
+      keepBlock.current = null;
+      keepOffset.current = 0;
+      setPage(keep === LAST_PAGE ? FRONT_PAGES - 1 : (prev) => Math.min(prev, FRONT_PAGES - 1));
+      return;
+    }
     const flow = flowRef.current;
-    if (!flow || !metrics || !current) return;
+    if (!flow || !current) return;
     // フォントが切り替わってから測るため、描画の直後に一度だけ計算する
     const handle = requestAnimationFrame(() => {
       const result = layoutFlow(flow, {
@@ -168,7 +201,7 @@ export default function Reader() {
       }
     });
     return () => cancelAnimationFrame(handle);
-  }, [metrics, current, chapter, settings.vertical, settings.font, settings.size, lineHeight]);
+  }, [metrics, current, chapter, isFront, settings.vertical, settings.font, settings.size, lineHeight]);
 
   /*
    * まだ測っていない章を、画面の外で1章ずつ測る。
@@ -208,6 +241,20 @@ export default function Reader() {
     setMeasuredCount((n) => n + 1);
   }, [measuring, metrics, settings.vertical, lineHeight]);
 
+  /**
+   * 目次ページに並べる項目。
+   * 1ページに収めたいので、章の見出し（それぞれの章の先頭のもの）だけを拾う。
+   */
+  const frontToc = useMemo(() => {
+    if (!book) return [];
+    const seen = new Set<number>();
+    return book.toc.filter((entry) => {
+      if (seen.has(entry.chapter)) return false;
+      seen.add(entry.chapter);
+      return true;
+    });
+  }, [book]);
+
   /** 組み直しの前に、いま読んでいる場所（かたまりと、その中の何ページ目か）を覚えておく。 */
   const rememberBlock = useCallback(() => {
     if (!layout) return;
@@ -225,8 +272,9 @@ export default function Reader() {
    * （見積もりが混ざるときは「約」を付けて示す）。
    */
   const remaining = useMemo(() => {
-    if (!layout || !current) return null;
-    const perPage = pages > 0 && current.chars > 0 ? current.chars / pages : 0;
+    if (!layout) return null;
+    const perPage =
+      current && pages > 0 && current.chars > 0 ? current.chars / pages : 0;
     let rest = pages - page - 1;
     let estimated = false;
     for (let i = chapter + 1; i < chapters.length; i++) {
@@ -264,7 +312,7 @@ export default function Reader() {
       const base = starts[entry.chapter];
       if (base === undefined) return null;
       const inside = chapterPages.current.get(entry.chapter)?.anchors.get(entry.id) ?? 0;
-      return base + inside + 1;
+      return FRONT_PAGES + base + inside + 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapters, measuredCount]);
@@ -279,8 +327,8 @@ export default function Reader() {
         setPage(next);
         return;
       }
-      if (next < 0 && chapter > 0) {
-        // 前の章へ。組み直したあと、その章の最後のページを開く。
+      if (next < 0 && chapter > FRONT) {
+        // 前の章（いちばん手前は前付け）へ。組み直したあと、最後のページを開く。
         keepBlock.current = LAST_PAGE;
         setChapter(chapter - 1);
         return;
@@ -464,7 +512,7 @@ export default function Reader() {
   );
 
   const toggleBookmark = () => {
-    if (!record || !current) return;
+    if (!record || !current) return; // 前付けにはしおりを挟まない
     const exists = record.bookmarks.find(
       (b) => b.chapter === chapter && b.block === currentBlock
     );
@@ -512,7 +560,7 @@ export default function Reader() {
   /* ---------------- 表示 ---------------- */
 
   if (record === undefined) return <div className="loading">読み込み中…</div>;
-  if (record === null || !book || !current) {
+  if (record === null || !book || (!current && !isFront)) {
     return (
       <div className="loading">
         <p>本が見つかりませんでした。</p>
@@ -524,8 +572,9 @@ export default function Reader() {
   }
 
   const totalPages = chapters.length;
-  const progress =
-    (chapter + (pages > 1 ? page / (pages - 1 || 1) : 1)) / Math.max(1, totalPages);
+  const progress = isFront
+    ? 0
+    : (chapter + (pages > 1 ? page / (pages - 1 || 1) : 1)) / Math.max(1, totalPages);
   // ページの位置は行の実測から決まるので、等間隔とは限らない
   const pageStart = layout?.pageStarts[page] ?? 0;
   const offset = (settings.vertical ? pageStart : -pageStart) + drag;
@@ -551,7 +600,7 @@ export default function Reader() {
         </button>
         <div className="reader-title">
           <strong>{record.title}</strong>
-          <span>{current.title || `第${chapter + 1}章`}</span>
+          <span>{isFront ? '表紙・目次' : current.title || `第${chapter + 1}章`}</span>
         </div>
         <button
           className={`icon-btn${marked ? ' on' : ''}`}
@@ -605,9 +654,65 @@ export default function Reader() {
               style={{ transform: `translateX(${offset}px)` }}
               onTransitionEnd={() => setAnimating(false)}
             >
+              {/*
+                前付け（表紙・扉・目次）。本文と同じように、1ページぶんずつ
+                横に並べて置く。縦書きは右から左へ、横書きは左から右へ進むので、
+                ページの位置もそれに合わせる。
+              */}
+              {isFront &&
+                [0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="front-page"
+                    style={{
+                      width: metrics.pageWidth,
+                      ...(settings.vertical
+                        ? { right: i * metrics.step }
+                        : { left: i * metrics.step }),
+                    }}
+                  >
+                    {i === 0 && (
+                      <div className="front-cover">
+                        <Cover
+                          title={record.title}
+                          author={record.author}
+                          seed={record.seed}
+                          imageUrl={coverUrl}
+                        />
+                      </div>
+                    )}
+                    {i === 1 && (
+                      <div className="front-title">
+                        <strong>{record.title}</strong>
+                        {record.author && <span>{record.author}</span>}
+                      </div>
+                    )}
+                    {i === 2 && (
+                      <div className="front-toc">
+                        <h2>目次</h2>
+                        <ol>
+                          {frontToc.map((entry, n) => (
+                            <li key={n}>
+                              <button
+                                onClick={() =>
+                                  jumpTo({ chapter: entry.chapter, anchor: entry.id })
+                                }
+                              >
+                                <span>{entry.title || '（無題）'}</span>
+                                <em>{tocPages(entry) ?? ''}</em>
+                              </button>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
               <div
                 className="flow"
                 ref={flowRef}
+                hidden={isFront}
                 style={
                   settings.vertical
                     ? {
@@ -630,11 +735,13 @@ export default function Reader() {
                       }
                 }
               >
-                <RenderBlocks
-                  blocks={current.blocks}
-                  onJump={onJump}
-                  highlight={hit && hit.chapter === chapter ? hit.block : undefined}
-                />
+                {current && (
+                  <RenderBlocks
+                    blocks={current.blocks}
+                    onJump={onJump}
+                    highlight={hit && hit.chapter === chapter ? hit.block : undefined}
+                  />
+                )}
                 <div className="md-end" aria-hidden />
               </div>
             </div>
@@ -696,20 +803,19 @@ export default function Reader() {
             {settings.vertical ? '左から右へなぞると次のページ' : '右から左へなぞると次のページ'}
           </span>
           <span className="foot-rest">
-            <span>
-              {pages - page - 1 > 0
+            {isFront
+              ? pages - page - 1 > 0
+                ? `本文まで あと${pages - page - 1}ページ`
+                : 'つぎから本文'
+              : pages - page - 1 > 0
                 ? `この章 あと${pages - page - 1}ページ`
                 : chapter < chapters.length - 1
                   ? 'この章の終わり'
                   : '最後の章'}
-            </span>
-            <span>
-              {remaining === null
-                ? ''
-                : remaining.pages > 0
-                  ? `全体 あと${remaining.estimated ? '約' : ''}${remaining.pages}ページ`
-                  : '読了'}
-            </span>
+            {remaining !== null &&
+              (remaining.pages > 0
+                ? `（全体 あと${remaining.estimated ? '約' : ''}${remaining.pages}ページ）`
+                : '（読了）')}
           </span>
         </div>
       </footer>

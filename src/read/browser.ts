@@ -85,6 +85,8 @@ export function countExternalRequests(): number {
     return performance
       .getEntriesByType('resource')
       .filter((entry) => {
+        // 端末の中で作ったもの（表紙の画像など）は通信ではない
+        if (/^(blob:|data:)/.test(entry.name)) return false;
         try {
           return new URL(entry.name, here).origin !== here;
         } catch {
