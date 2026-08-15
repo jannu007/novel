@@ -41,6 +41,37 @@ export function chromeIntentUrl(): string {
   );
 }
 
+/**
+ * 端末に残っているアプリの控えを捨てて、最新の版を取り直す。
+ *
+ * アプリ内ブラウザなどでは、古い版がしつこく残って
+ * 「直したはずのものが直っていない」ように見えることがある。
+ * その場で抜け出すための手立て。本棚の中身（IndexedDB）には触れない。
+ */
+export async function refreshApp(): Promise<void> {
+  try {
+    if ('caches' in window) {
+      const names = await caches.keys();
+      // 共有で受け取った途中のものだけは残す
+      await Promise.all(
+        names.filter((n) => n !== 'shiori-share').map((n) => caches.delete(n))
+      );
+    }
+  } catch {
+    /* 消せなくても、このあとの取り直しは試す */
+  }
+  try {
+    const registrations = await navigator.serviceWorker?.getRegistrations?.();
+    if (registrations) await Promise.all(registrations.map((r) => r.unregister()));
+  } catch {
+    /* 同上 */
+  }
+  // 同じURLだと控えを見に行くことがあるので、目印を付けて取り直す
+  const url = new URL(window.location.href);
+  url.searchParams.set('v', Date.now().toString(36));
+  window.location.replace(url.href);
+}
+
 /** いまのページのURLを写す。写せたら true。 */
 export async function copyPageUrl(): Promise<boolean> {
   const url = window.location.href;

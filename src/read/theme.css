@@ -576,6 +576,12 @@ select {
 .paste-hint {
   margin: -6px 0 0;
 }
+.lib-version {
+  margin: 0 0 8px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 0.7rem;
+}
 .sheet-sub {
   border-top: 1px solid var(--line);
   padding-top: 10px;
