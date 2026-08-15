@@ -721,10 +721,26 @@ select {
   margin: 0;
   padding: 0;
 }
+.toc-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.toc-title {
+  flex: 1;
+  min-width: 0;
+}
+/* 本の目次と同じ、右端の通しページ */
+.toc-page {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
+}
+
 .toc-item,
 .mark-item,
 .result-item {
-  display: block;
   width: 100%;
   padding: 9px 10px;
   border: none;
@@ -877,6 +893,14 @@ select {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* 右下の残りページ（この章／本全体） */
+.foot-rest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.35;
+  white-space: nowrap;
 }
 @media (max-width: 480px) {
   .foot-hint {
@@ -1093,6 +1117,23 @@ select {
 .md-end {
   block-size: 0;
   inline-size: 0;
+}
+
+/*
+ * 目次の通しページを数えるための、画面の外の測定場所。
+ * 本文と同じ体裁・同じ大きさで組まないと正しく測れないので、
+ * 非表示にはせず、画面の外へ追いやっている。
+ */
+.measure-host {
+  position: fixed;
+  top: 0;
+  left: -20000px;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  contain: layout;
 }
 
 .boten {
