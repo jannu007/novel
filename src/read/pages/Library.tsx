@@ -318,35 +318,45 @@ export default function Library() {
       </div>
 
       {/* ---- 貼り付けて作る ---- */}
-      <Sheet open={sheet === 'paste'} title="貼り付けて1冊にする" onClose={() => setSheet(null)}>
+      <Sheet
+        open={sheet === 'paste'}
+        title="貼り付けて1冊にする"
+        onClose={() => setSheet(null)}
+        // キーボードが出ても押せるよう、決定ボタンは下端に固定して置く
+        footer={
+          <button
+            className="btn btn-primary"
+            disabled={pasted.trim() === ''}
+            onClick={async () => {
+              const name = `${pastedTitle.trim() || '貼り付けた文章'}.md`;
+              const book = makeBook(pasted, name);
+              await saveBook(book);
+              setPasted('');
+              setPastedTitle('');
+              setSheet(null);
+              await refresh();
+              navigate(`/b/${book.id}`);
+            }}
+          >
+            本にする
+          </button>
+        }
+      >
         <input
           className="input"
-          placeholder="題名（省略すると本文の見出しから決めます）"
+          placeholder="題名（省略できます）"
           value={pastedTitle}
           onChange={(e) => setPastedTitle(e.target.value)}
         />
+        <p className="muted small paste-hint">
+          題名を空のままにすると、本文の見出しから決めます。
+        </p>
         <textarea
           className="input textarea"
           placeholder="Markdown を貼り付けてください"
           value={pasted}
           onChange={(e) => setPasted(e.target.value)}
         />
-        <button
-          className="btn btn-primary"
-          disabled={pasted.trim() === ''}
-          onClick={async () => {
-            const name = `${pastedTitle.trim() || '貼り付けた文章'}.md`;
-            const book = makeBook(pasted, name);
-            await saveBook(book);
-            setPasted('');
-            setPastedTitle('');
-            setSheet(null);
-            await refresh();
-            navigate(`/b/${book.id}`);
-          }}
-        >
-          本にする
-        </button>
       </Sheet>
 
       {/* ---- 保存データ ---- */}

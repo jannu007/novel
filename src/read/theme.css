@@ -229,7 +229,8 @@ select {
   background: var(--surface);
 }
 .textarea {
-  min-height: 180px;
+  /* 画面が低いとき（キーボードが出ているとき）は入力欄も縮める */
+  min-height: clamp(110px, 26dvh, 200px);
   border-radius: 14px;
   font-family: var(--mono);
   font-size: 0.9rem;
@@ -528,7 +529,11 @@ select {
 }
 .sheet {
   width: min(560px, 100%);
-  max-height: 82svh;
+  /*
+   * キーボードが出ると見えている高さが縮む。--vvh（実際に見えている高さ）に
+   * 合わせておくと、下のボタンが画面の外に出てしまわない。
+   */
+  max-height: min(88dvh, calc(var(--vvh, 100dvh) - 12px));
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -546,9 +551,30 @@ select {
 .sheet-body {
   padding: 16px 20px calc(24px + env(safe-area-inset-bottom));
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+/* 決定ボタンなど、スクロールさせずに下端へ固定するもの */
+.sheet-foot {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.sheet:has(.sheet-foot) .sheet-body {
+  padding-bottom: 14px;
+}
+.sheet-foot .btn {
+  min-width: 8em;
+}
+.paste-hint {
+  margin: -6px 0 0;
 }
 .sheet-sub {
   border-top: 1px solid var(--line);
