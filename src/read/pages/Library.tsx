@@ -24,6 +24,7 @@ import { SAMPLE_BOOK, SAMPLE_FILE_NAME } from '../sample';
 import {
   chromeIntentUrl,
   copyPageUrl,
+  countExternalRequests,
   isAndroid,
   isInAppBrowser,
   refreshApp,
@@ -60,14 +61,13 @@ export default function Library() {
   }, []);
 
   /**
-   * ファイル選択を開く。端末によっては候補にカメラしか出ず、何も選べずに
-   * 戻ってくることがあるので、そのときは別の入れ方をその場で案内する。
+   * ファイル選択を開いたことを覚えておく（押したのは <label>、開くのはブラウザ）。
+   * 何も選ばれずに戻ってきたときに、別の入れ方を案内するために使う。
    */
-  const openPicker = useCallback(() => {
+  const markPicking = useCallback(() => {
     setPickFailed(false);
     picking.current = true;
     picked.current = false;
-    fileInput.current?.click();
   }, []);
 
   useEffect(() => {
@@ -111,6 +111,19 @@ export default function Library() {
       if (added.length === 1 && failed.length === 0) navigate(`/b/${added[0].id}`);
     },
     [navigate, refresh]
+  );
+
+  /** どの入力欄から選ばれても、同じように取り込む。 */
+  const onPicked = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        picked.current = true;
+        setPickFailed(false);
+        addFiles(e.target.files);
+      }
+      e.target.value = '';
+    },
+    [addFiles]
   );
 
   // 他のアプリから「共有」で送られてきたファイルを拾う
@@ -174,30 +187,45 @@ export default function Library() {
         <button className="icon-btn" onClick={() => setSheet('about')} aria-label="安全のしくみ">
           <ShieldIcon />
         </button>
-        <button className="btn btn-primary" onClick={openPicker}>
+        <label className="btn btn-primary" htmlFor="shiori-pick" onClick={markPicking}>
           <PlusIcon />
           本を追加
-        </button>
+        </label>
       </header>
 
       {/*
-        種類（accept）でしぼり込むと、端末によってはファイルアプリが選択肢から消えて
-        本を選べなくなる（Androidで .md や text/markdown を知らない場合）。
-        ここではしぼらず、選ばれたあとに中身が文字として読めるかで判断する。
+        ファイル選択の入力欄。ここは端末ごとの差が大きく、次の形が確実だった。
+
+        - **種類（accept）を指定する。** 指定しないと、Androidの選択画面に
+          ファイルアプリが出てこず「カメラ」だけになることがある。
+        - **`multiple` を付けない。** 複数選択を求めると、それに対応しない
+          ファイルアプリが候補から外される（Samsungの「マイファイル」など）。
+        - **押すのは <label> から。** 利用者が入力欄そのものを押したことになる。
+
+        まとめて選びたいとき・それでも出ないときのために、
+        条件を変えた入力欄も置いてあり、案内から選べるようにしている。
       */}
       <input
+        id="shiori-pick"
         ref={fileInput}
         type="file"
+        accept=".md,.markdown,.txt,text/markdown,text/plain"
+        className="file-input"
+        onChange={onPicked}
+      />
+      <input
+        id="shiori-pick-plain"
+        type="file"
+        className="file-input"
+        onChange={onPicked}
+      />
+      <input
+        id="shiori-pick-multi"
+        type="file"
         multiple
-        hidden
-        onChange={(e) => {
-          if (e.target.files && e.target.files.length > 0) {
-            picked.current = true;
-            setPickFailed(false);
-            addFiles(e.target.files);
-          }
-          e.target.value = '';
-        }}
+        accept=".md,.markdown,.txt,text/markdown,text/plain"
+        className="file-input"
+        onChange={onPicked}
       />
 
       {/*
@@ -254,9 +282,19 @@ export default function Library() {
         <div className="notice">
           <p>
             <strong>ファイルを選べましたか？</strong>
-            候補に「カメラ」しか出ないときは、この画面からは選べません。
-            次のどれかでも本を入れられます。
+            候補に「カメラ」しか出ないのは、端末のファイルアプリが
+            この求めに応じていないためで、栞からは変えられません。
+            {isStandalone()
+              ? '次の方法なら、選ぶ画面を通らずに入れられます。'
+              : '次のどれかでも本を入れられます。'}
           </p>
+          {isStandalone() && (
+            <p className="muted">
+              <strong>おすすめ：</strong>端末の「マイファイル」で .md を長押しして
+              <strong>共有</strong>を選び、そこから<strong>栞</strong>を選んでください。
+              そのまま本棚に入ります。
+            </p>
+          )}
           <div className="notice-actions">
             <button
               className="btn btn-sm btn-primary"
@@ -268,7 +306,13 @@ export default function Library() {
               <PasteIcon />
               貼り付けて作る
             </button>
-            {isAndroid() && (
+            <label className="btn btn-sm" htmlFor="shiori-pick-plain" onClick={markPicking}>
+              種類を指定せずに選び直す
+            </label>
+            <label className="btn btn-sm" htmlFor="shiori-pick-multi" onClick={markPicking}>
+              まとめて選ぶ
+            </label>
+            {isAndroid() && !isStandalone() && (
               <a className="btn btn-sm" href={chromeIntentUrl()}>
                 Chromeで開く
               </a>
@@ -306,11 +350,15 @@ export default function Library() {
             <br />
             文章を貼り付けて1冊にすることもできます。
           </p>
+          <label className="dropzone" htmlFor="shiori-pick" onClick={markPicking}>
+            <strong>ここに .md / .txt をドロップ、またはタップして選択</strong>
+            <span>端末の中だけで読み取ります。どこにも送信しません。</span>
+          </label>
           <div className="empty-actions">
-            <button className="btn btn-primary" onClick={openPicker}>
+            <label className="btn btn-primary" htmlFor="shiori-pick" onClick={markPicking}>
               <PlusIcon />
               ファイルを選ぶ
-            </button>
+            </label>
             <button className="btn" onClick={() => setSheet('paste')}>
               <PasteIcon />
               貼り付けて作る
@@ -367,6 +415,16 @@ export default function Library() {
               </article>
             ))}
           </div>
+
+          {/*
+            見えている領域そのものを押してもらう入り口。
+            画面から消した入力欄をプログラムから押すのに比べ、
+            Androidで本来の選択画面が出やすい。
+          */}
+          <label className="dropzone" htmlFor="shiori-pick" onClick={markPicking}>
+            <strong>ここに .md / .txt をドロップ、またはタップして選択</strong>
+            <span>端末の中だけで読み取ります。どこにも送信しません。</span>
+          </label>
 
           <div className="lib-foot">
             <button className="btn btn-ghost" onClick={() => setSheet('paste')}>
@@ -531,10 +589,21 @@ export default function Library() {
             </span>
           </li>
           <li>
-            <strong>ファイルアプリから送る（おすすめ）</strong>
+            <strong>ファイルアプリから送る（もっとも確実）</strong>
             <br />
-            端末の「ファイル」アプリで .md を選び、<strong>共有 → 栞</strong> を選びます。
-            アプリとして入れてあるときに使えます。
+            端末の「マイファイル」や「ファイル」で .md を長押しし、
+            <strong>共有</strong>から<strong>栞</strong>を選びます。選ぶ画面を通らないので、
+            候補にカメラしか出ない端末でも入れられます。
+            <br />
+            アプリとして入れてあるときに使えます（入れていない場合は、
+            先に「アプリとして入れる」をお試しください）。
+          </li>
+          <li>
+            <strong>選ぶ画面の種類を変えてみる</strong>
+            <br />
+            端末によっては、種類を指定したほうがファイルアプリが出てきます。
+            「本を追加」で選べなかったときに出る案内から、
+            「文章ファイルとして選び直す」を試せます。
           </li>
           <li>
             <strong>貼り付ける</strong>
@@ -613,6 +682,19 @@ export default function Library() {
 
       {/* ---- 安全のしくみ ---- */}
       <Sheet open={sheet === 'about'} title="安全のしくみ" onClose={() => setSheet(null)}>
+        <div className="notice">
+          <p>
+            <strong>この画面を開いてから、外部への通信は {countExternalRequests()} 件です。</strong>
+            <br />
+            ブラウザ自身が記録している読み込みの一覧から、栞のサイト以外へ行ったものを
+            数えています。栞は通信を行わないので、ここは 0 のままになります。
+          </p>
+        </div>
+        <p className="muted">
+          <strong>機内モードでも使えます。</strong>
+          一度開いたあとは、通信を切ったままで本の取り込みも読書もできます。
+          外に出ていないことを確かめたいときは、機内モードにしてお使いください。
+        </p>
         <ul className="about">
           <li>
             <strong>通信しません。</strong>
@@ -640,6 +722,17 @@ export default function Library() {
           <li>
             <strong>保存はこの端末だけ。</strong>
             アカウントも登録も不要で、完全に無料です。
+          </li>
+          <li>
+            <strong>アプリとして入れても、安全のしくみは同じです。</strong>
+            ホーム画面から開く見た目になるだけで、動かしているものは変わりません。
+            上の「外部への通信」も同じように 0 のままです。
+          </li>
+          <li>
+            <strong>いま気をつけるとよいこと。</strong>
+            LINEやメールなどのアプリの中で開いた画面（アプリ内ブラウザ）は、
+            そのアプリを通して表示されています。気になるときは、
+            ふつうのブラウザで開き直すか、アプリとして入れてお使いください。
           </li>
         </ul>
       </Sheet>
