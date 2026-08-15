@@ -1,7 +1,13 @@
 // 製本所のサービスワーカー。
 // キャッシュするのは、このアプリ自身（同じサイト）のファイルだけ。
 // 外部のファイルは取りにいかないし、保存もしない。
-const CACHE_NAME = 'seihonjo-v1';
+//
+// もうひとつの役目が「共有で受け取る」こと。スマートフォンでは、
+// ファイル選択の画面にファイルアプリが出てこない端末がある。
+// そこで、ファイルアプリ側から「共有 → 製本所」で渡せるようにしている。
+// 受け取ったものは一時置き場（下の SHARE_CACHE）に置くだけで、外へは出さない。
+const CACHE_NAME = 'seihonjo-v2';
+const SHARE_CACHE = 'seihonjo-share';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -12,19 +18,73 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME && key !== SHARE_CACHE)
+            .map((key) => caches.delete(key))
+        )
       )
       .then(() => self.clients.claim())
   );
 });
 
+/** 共有された内容を一時置き場にしまう。 */
+async function stashShared(request) {
+  const cache = await caches.open(SHARE_CACHE);
+  try {
+    const form = await request.formData();
+    const files = form.getAll('file').filter((entry) => entry instanceof File);
+    let index = 0;
+    for (const file of files) {
+      await cache.put(
+        `./shared/${index++}`,
+        new Response(file, {
+          headers: { 'X-File-Name': encodeURIComponent(file.name || 'shared.md') },
+        })
+      );
+    }
+    if (files.length === 0) {
+      // ファイルではなく文章そのものが送られてきた場合
+      const text = form.get('text');
+      const title = form.get('title');
+      if (typeof text === 'string' && text.trim() !== '') {
+        await cache.put(
+          './shared/0',
+          new Response(text, {
+            headers: {
+              'X-File-Name': encodeURIComponent(`${title || '共有された文章'}.md`),
+            },
+          })
+        );
+      }
+    }
+  } catch {
+    /* 受け取れなかったときは、そのままアプリを開くだけにする */
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
+  const url = new URL(request.url);
+
+  // 他のアプリから「共有」で送られてきたとき
+  if (request.method === 'POST' && url.pathname.endsWith('/share')) {
+    event.respondWith(
+      stashShared(request).then(() =>
+        Response.redirect(new URL('./?shared=1', self.location.href).href, 303)
+      )
+    );
+    return;
+  }
+
   if (request.method !== 'GET') return;
 
   // 同じサイトのファイル以外には一切関与しない
-  const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // アプリの説明書き（manifest）は控えから返さない。
+  // 古い内容でアプリを組み立てようとして、インストールに失敗することがあるため。
+  if (url.pathname.endsWith('.webmanifest')) return;
 
   event.respondWith(
     fetch(request)

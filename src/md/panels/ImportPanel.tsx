@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { readDroppedFiles } from '../assets';
 import { chromeIntentUrl, isAndroid, isInAppBrowser, isStandalone } from '../browser';
+import { useInstallPrompt } from '../../lib/useInstallPrompt';
 
 interface Props {
   source: string;
@@ -50,7 +51,10 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
   const [over, setOver] = useState(false);
   const [note, setNote] = useState('');
   const [pickFailed, setPickFailed] = useState(false);
+  const [clipboardFailed, setClipboardFailed] = useState(false);
   const [inApp] = useState(isInAppBrowser);
+  const { canInstall, promptInstall } = useInstallPrompt();
+  const textarea = useRef<HTMLTextAreaElement>(null);
 
   /** ファイル選択を開いたか（何も選ばずに戻ってきたのを見つけるため）。 */
   const picking = useRef(false);
@@ -62,17 +66,23 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
     picked.current = false;
   }, []);
 
-  // 選択画面から何も選ばずに戻ってきたら、別の入れ方を出す
+  // 選択画面から何も選ばずに戻ってきたら、別の入れ方を出す。
+  // 画面に戻ってきたことは、端末によって focus と visibilitychange のどちらかで分かる。
   useEffect(() => {
-    const onFocus = () => {
+    const onBack = () => {
       if (!picking.current) return;
+      if (document.visibilityState === 'hidden') return;
       picking.current = false;
       window.setTimeout(() => {
         if (!picked.current) setPickFailed(true);
       }, 900);
     };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    window.addEventListener('focus', onBack);
+    document.addEventListener('visibilitychange', onBack);
+    return () => {
+      window.removeEventListener('focus', onBack);
+      document.removeEventListener('visibilitychange', onBack);
+    };
   }, []);
 
   const take = useCallback(
@@ -107,6 +117,30 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
     e.target.value = '';
   };
 
+  /** 写した文章をそのまま流し込む（ファイルを選べない端末でいちばん確実な道）。 */
+  const pasteFromClipboard = async () => {
+    setClipboardFailed(false);
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setClipboardFailed(true);
+        return;
+      }
+      onSource(source.trim() ? `${source}\n\n${text}` : text);
+      setNote('写しておいた文章を入れました。');
+    } catch {
+      // 端末が読み取りを許していないときは、自分で貼ってもらう
+      setClipboardFailed(true);
+      textarea.current?.focus();
+      textarea.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const focusTextarea = () => {
+    textarea.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    textarea.current?.focus();
+  };
+
   return (
     <>
       {inApp && (
@@ -115,11 +149,10 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
           <div>
             <b>アプリ内のブラウザで開いています。</b>
             <span>
-              この画面ではファイルを選べないことがあります（候補にカメラしか出ない場合）。
-              下の「貼り付ける」なら確実に使えます。
+              この画面ではファイルを選べないことがあります。下の「貼り付ける」なら確実に使えます。
             </span>
             {isAndroid() && (
-              <div className="btn-row" style={{ marginTop: 8 }}>
+              <div className="btn-row">
                 <a className="btn" href={chromeIntentUrl()}>
                   Chromeで開き直す
                 </a>
@@ -132,9 +165,35 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
       <div className="card">
         <h2>原稿を渡す</h2>
         <p className="hint">
-          Markdownファイルを選ぶか、下の欄に貼り付けてください。見出しから章と目次が組まれ、
-          内容に合った表紙と挿絵がその場で描かれます。
+          いちばん確実なのは<b>貼り付け</b>です。原稿を写して（コピーして）、下のボタンを押してください。
+          パソコンやファイルを選べる端末なら、ファイルから読み込むこともできます。
         </p>
+
+        <div className="btn-row">
+          <button className="btn primary wide" onClick={pasteFromClipboard}>
+            写した文章を貼り付ける
+          </button>
+        </div>
+        <p className="hint" style={{ marginTop: 8 }}>
+          押しても入らないときは、
+          <button className="linklike" onClick={focusTextarea}>
+            下の入力欄
+          </button>
+          を長押しして「貼り付け」を選んでください。
+        </p>
+        {clipboardFailed && (
+          <div className="notice">
+            <span aria-hidden="true">⚑</span>
+            <div>
+              <b>この端末では、写した文章を自動で読み取れませんでした。</b>
+              <span>下の入力欄を長押しして「貼り付け」を選んでください。</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <h2>ファイルから読み込む</h2>
 
         {/*
           ファイル選択の入力欄。スマートフォンでは端末ごとの差が大きく、
@@ -147,7 +206,9 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
           - **押すのは <label> から。** 利用者が入力欄そのものを押したことになる
             （JavaScriptから開くと、はじかれる端末がある）。
 
-          それでも選べない端末のために、条件を変えた欄も置いてある。
+          それでも、選択画面そのものを用意しているのは端末側なので、
+          「カメラしか出ない」ことは起こりうる。そのときのために、
+          貼り付けと「共有から渡す」道を上と下に置いてある。
         */}
         <label
           className={`dropzone${over ? ' over' : ''}`}
@@ -178,10 +239,22 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
           <label className="btn ghost" htmlFor="md-pick-multi" onClick={markPicking}>
             まとめて選ぶ
           </label>
+          <label className="btn ghost" htmlFor="md-pick-plain" onClick={markPicking}>
+            種類を指定せずに選ぶ
+          </label>
           <label className="btn ghost" htmlFor="md-pick-image" onClick={markPicking}>
             挿絵の画像を足す
           </label>
         </div>
+
+        {isAndroid() && (
+          <p className="hint" style={{ marginTop: 10 }}>
+            <b>候補に「カメラ」しか出ないときは、</b>
+            端末のファイル選択のしくみによるもので、製本所からは変えられません。
+            上の「貼り付ける」か、下の「共有から渡す」をお使いください。
+          </p>
+        )}
+
         <p className="hint" style={{ marginTop: 10 }}>
           画像も入れておくと、本文の <code>![](ファイル名)</code> がその画像になります。
           複数の原稿は、ファイル名の順につなぎます。
@@ -189,10 +262,6 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
 
         {note && <div className="notice info">{note}</div>}
 
-        {/*
-          選択画面から何も選ばずに戻ってきたとき。端末によっては候補にカメラしか出ず、
-          そもそも選べないので、その場で別の道を出す。
-        */}
         {pickFailed && (
           <div className="notice">
             <span aria-hidden="true">⚑</span>
@@ -200,20 +269,14 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
               <b>ファイルを選べましたか？</b>
               <span>
                 候補に「カメラ」しか出ないのは、端末のファイルアプリがこの求めに応じていないためで、
-                製本所からは変えられません。次のどれかでも原稿を渡せます。
+                製本所からは変えられません。次のどれかで確実に渡せます。
               </span>
-              {isStandalone() && (
-                <span>
-                  <b>おすすめ：</b>端末の「マイファイル」で .md を長押しして
-                  <b>共有</b>や<b>コピー</b>を選び、下の欄に貼り付けてください。
-                </span>
-              )}
-              <div className="btn-row" style={{ marginTop: 10 }}>
+              <div className="btn-row">
+                <button className="btn primary" onClick={pasteFromClipboard}>
+                  写した文章を貼り付ける
+                </button>
                 <label className="btn" htmlFor="md-pick-plain" onClick={markPicking}>
                   種類を指定せずに選び直す
-                </label>
-                <label className="btn" htmlFor="md-pick-multi" onClick={markPicking}>
-                  まとめて選ぶ
                 </label>
                 {isAndroid() && !isStandalone() && (
                   <a className="btn" href={chromeIntentUrl()}>
@@ -230,12 +293,43 @@ export default function ImportPanel({ source, onSource, onFiles, onDone, ready }
       </div>
 
       <div className="card">
+        <h2>共有から渡す（スマートフォン向け）</h2>
+        <p className="hint">
+          製本所を<b>アプリとして入れておく</b>と、端末の「マイファイル」やメモ帳から
+          <b>共有 → 製本所</b>で原稿をそのまま渡せます。ファイル選択の画面を通らないので、
+          カメラしか出ない端末でも確実です。
+        </p>
+        <ol className="hint" style={{ paddingLeft: '1.3em' }}>
+          <li>この画面をアプリとして入れる（下のボタン、またはブラウザのメニューから「ホーム画面に追加」）</li>
+          <li>「マイファイル」で .md を長押し →「共有」</li>
+          <li>共有先の一覧から<b>製本所</b>を選ぶ</li>
+        </ol>
+        {canInstall && (
+          <div className="btn-row">
+            <button className="btn primary" onClick={promptInstall}>
+              アプリとして入れる
+            </button>
+          </div>
+        )}
+        {isStandalone() && (
+          <div className="notice ok">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <b>アプリとして開いています。</b>
+              <span>「共有 → 製本所」が使えます。</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
         <h2>貼り付ける</h2>
         <p className="hint">
           どの端末でも確実に使える方法です。貼った瞬間から本の形に組み上がります。
           書き換えれば、その場で組み直します。
         </p>
         <textarea
+          ref={textarea}
           value={source}
           onChange={(e) => onSource(e.target.value)}
           placeholder={'# 本のタイトル\n\n## 第一章\n\n　本文をここに……'}

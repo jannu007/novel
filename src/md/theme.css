@@ -294,6 +294,18 @@ main {
   gap: 10px;
 }
 
+/* 文章の中に置く、リンクのように見えるボタン */
+.linklike {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 .field {
   display: block;
   margin-bottom: 12px;
