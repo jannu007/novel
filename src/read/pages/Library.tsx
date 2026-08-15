@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cover from '../components/Cover';
+import { useBookCover } from '../useBookCover';
 import Sheet from '../components/Sheet';
 import {
   DownloadIcon,
@@ -18,6 +19,7 @@ import {
 } from '../components/Icons';
 import { useInstallPrompt } from '../../lib/useInstallPrompt';
 import { clearLibrary, deleteBook, listBooks, saveBook, type BookRecord } from '../db';
+import { clearCovers, deleteCover } from '../cover';
 import { downloadSource, makeBook, readBookFiles, takeSharedFiles } from '../import';
 import { readingMinutes } from '../book';
 import { SAMPLE_BOOK, SAMPLE_FILE_NAME } from '../sample';
@@ -123,6 +125,7 @@ export default function Library() {
   const remove = async (book: BookRecord) => {
     if (!confirm(`「${book.title}」を本棚から削除します。よろしいですか？`)) return;
     await deleteBook(book.id);
+    await deleteCover(book.id);
     await refresh();
   };
 
@@ -295,12 +298,7 @@ export default function Library() {
             {books.map((book) => (
               <article className="shelf-item" key={book.id}>
                 <button className="shelf-open" onClick={() => navigate(`/b/${book.id}`)}>
-                  <Cover
-                    title={book.title}
-                    author={book.author}
-                    seed={book.seed}
-                    progress={progressOf(book)}
-                  />
+                  <ShelfCover book={book} />
                 </button>
                 <div className="shelf-meta">
                   <strong>{book.title}</strong>
@@ -464,6 +462,7 @@ export default function Library() {
           onClick={async () => {
             if (!confirm('本棚のすべての本を削除します。よろしいですか？')) return;
             await clearLibrary();
+            await clearCovers();
             await refresh();
             setSheet(null);
           }}
@@ -660,6 +659,20 @@ export default function Library() {
         </ul>
       </Sheet>
     </div>
+  );
+}
+
+/** 本棚に並べる1冊ぶんの表紙（中身から描いた絵ができ次第、差し替わる）。 */
+function ShelfCover({ book }: { book: BookRecord }) {
+  const imageUrl = useBookCover(book);
+  return (
+    <Cover
+      title={book.title}
+      author={book.author}
+      seed={book.seed}
+      progress={progressOf(book)}
+      imageUrl={imageUrl}
+    />
   );
 }
 
