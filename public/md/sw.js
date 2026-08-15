@@ -6,8 +6,20 @@
 // ファイル選択の画面にファイルアプリが出てこない端末がある。
 // そこで、ファイルアプリ側から「共有 → 製本所」で渡せるようにしている。
 // 受け取ったものは一時置き場（下の SHARE_CACHE）に置くだけで、外へは出さない。
-const CACHE_NAME = 'seihonjo-v2';
+const CACHE_NAME = 'seihonjo-v3';
 const SHARE_CACHE = 'seihonjo-share';
+/**
+ * 書き出した本の一時置き場。
+ *
+ * アプリとして入れて使っているとき、その場で作ったファイル（blob）を
+ * そのまま保存しようとすると、Androidの保存係が受け取らずに
+ * 「ダウンロードに失敗しました」となることがある。
+ * そこで、書き出した本をここに置き、`./out/…` への求めとして
+ * ふつうのファイルの形（Content-Disposition 付き）で返す。
+ * こうすると端末は、ふつうのダウンロードとして受け取れる。
+ * 置き場はこの端末の中だけで、外へは出さない。
+ */
+const OUT_CACHE = 'seihonjo-out';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -20,7 +32,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== CACHE_NAME && key !== SHARE_CACHE)
+            .filter((key) => key !== CACHE_NAME && key !== SHARE_CACHE && key !== OUT_CACHE)
             .map((key) => caches.delete(key))
         )
       )
@@ -81,6 +93,17 @@ self.addEventListener('fetch', (event) => {
 
   // 同じサイトのファイル以外には一切関与しない
   if (url.origin !== self.location.origin) return;
+
+  // 書き出した本の受け取り（ふつうのダウンロードとして返す）
+  if (url.pathname.includes('/out/')) {
+    event.respondWith(
+      caches.open(OUT_CACHE).then(async (cache) => {
+        const found = await cache.match(request.url);
+        return found ?? new Response('not found', { status: 404 });
+      })
+    );
+    return;
+  }
 
   // アプリの説明書き（manifest）は控えから返さない。
   // 古い内容でアプリを組み立てようとして、インストールに失敗することがあるため。
