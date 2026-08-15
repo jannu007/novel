@@ -1225,6 +1225,20 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 押せることが分かるように、本の目次らしい控えめな下線を引く */
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em;
+}
+.front-toc button:hover span,
+.front-toc button:active span {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+.front-toc button:hover em,
+.front-toc button:active em {
+  color: var(--accent);
 }
 .front-toc button em {
   flex: none;
