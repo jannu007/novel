@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { readDroppedFiles } from '../assets';
+import { isStandalone } from '../browser';
 
 interface Props {
   onSource: (text: string) => void;
@@ -119,6 +120,12 @@ export default function ImportPanel({ onSource, onFiles, onDone, ready }: Props)
       <input id="md-pick" type="file" hidden onChange={onPicked} />
       <input id="md-pick-multi" type="file" multiple hidden onChange={onPicked} />
       <input id="md-pick-typed" type="file" accept={TEXT_ACCEPT} hidden onChange={onPicked} />
+      {/*
+        いちばん広く知られている種類だけを指定した欄。
+        `.md` のような知らない拡張子が混ざると、端末が「写真の求め」と
+        受け取ってしまうことがあるため、text/plain だけで開く道も置く。
+      */}
+      <input id="md-pick-text" type="file" accept="text/plain" hidden onChange={onPicked} />
 
       <div className="btn-row" style={{ marginTop: 12 }}>
         <label className="btn ghost" htmlFor="md-pick-multi">
@@ -127,7 +134,21 @@ export default function ImportPanel({ onSource, onFiles, onDone, ready }: Props)
         <label className="btn ghost" htmlFor="md-pick-typed">
           種類を指定して選ぶ
         </label>
+        <label className="btn ghost" htmlFor="md-pick-text">
+          テキストとして選ぶ
+        </label>
       </div>
+
+      {/*
+        アプリとして入れて使っているとき、端末によっては選択画面に
+        ファイルアプリが出てこない（端末側の仕組みなので、ここからは変えられない）。
+        そのときのために、逆向きの道が一行だけ分かるようにしてある。
+      */}
+      {isStandalone() && (
+        <p className="hint" style={{ marginTop: 10 }}>
+          「マイファイル」から <b>共有 → 製本所</b> でも渡せます。
+        </p>
+      )}
 
       {note && <div className="notice info">{note}</div>}
 

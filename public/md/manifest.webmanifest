@@ -9,11 +9,29 @@
   "background_color": "#f7f3ea",
   "theme_color": "#1f5f6b",
   "lang": "ja",
-  "categories": ["productivity", "books"],
+  "categories": [
+    "productivity",
+    "books"
+  ],
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "share_target": {
     "action": "./share",
@@ -26,14 +44,21 @@
         {
           "name": "file",
           "accept": [
+            "*/*",
+            "text/*",
             "text/plain",
             "text/markdown",
+            "text/x-markdown",
+            "application/markdown",
+            "application/x-markdown",
+            "application/octet-stream",
             "image/*",
             ".md",
             ".markdown",
             ".mdown",
             ".mkd",
-            ".txt"
+            ".txt",
+            ".text"
           ]
         }
       ]
@@ -43,8 +68,15 @@
     {
       "action": "./",
       "accept": {
-        "text/markdown": [".md", ".markdown", ".mdown", ".mkd"],
-        "text/plain": [".txt"]
+        "text/markdown": [
+          ".md",
+          ".markdown",
+          ".mdown",
+          ".mkd"
+        ],
+        "text/plain": [
+          ".txt"
+        ]
       }
     }
   ]
