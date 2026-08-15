@@ -9,7 +9,7 @@
  * - 読んでいた場所は自動で覚え、字の大きさを変えても同じ場所に戻る
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { buildBook } from '../book';
 import { inlineText } from '../markdown';
@@ -62,6 +62,17 @@ export default function Reader() {
   const moved = useRef(false);
   /** 設定変更などで組み直すとき、いま読んでいた場所（ブロック番号）を保つ */
   const keepBlock = useRef<number | null>(null);
+  /**
+   * 章ごとの組み上がり（ページ数と、見出しが何ページ目かの対応）。
+   * 目次の通しページと「本全体であと何ページか」に使う。
+   * まだ開いていない章は、画面の外で1章ずつ測って埋めていく。
+   */
+  const chapterPages = useRef(new Map<number, PageLayout>());
+  const layoutKey = useRef('');
+  const measureRef = useRef<HTMLDivElement>(null);
+  /** いま画面の外で測っている章（測り終えたら次の章へ進む） */
+  const [measuring, setMeasuring] = useState<number | null>(null);
+  const [measuredCount, setMeasuredCount] = useState(0);
   /** その場所が、かたまりの先頭から何ページ目だったか */
   const keepOffset = useRef(0);
 
@@ -69,7 +80,7 @@ export default function Reader() {
     () => (record ? buildBook(record.source, record.title) : null),
     [record]
   );
-  const chapters = book?.chapters ?? [];
+  const chapters = useMemo(() => book?.chapters ?? [], [book]);
   const current = chapters[chapter];
 
   /* ---------------- 読み込み ---------------- */
@@ -135,6 +146,14 @@ export default function Reader() {
         lineHeight,
       });
       setLayout(result);
+      // 組み方が変わったら、覚えていた章ごとのページ数は当てにならないので捨てる
+      const key = `${settings.vertical}|${settings.font}|${lineHeight}|${metrics.pageWidth}|${metrics.pageHeight}`;
+      if (layoutKey.current !== key) {
+        chapterPages.current.clear();
+        layoutKey.current = key;
+      }
+      chapterPages.current.set(chapter, result);
+      setMeasuredCount((n) => n + 1);
       const keep = keepBlock.current;
       const offset = keepOffset.current;
       keepBlock.current = null;
@@ -149,7 +168,45 @@ export default function Reader() {
       }
     });
     return () => cancelAnimationFrame(handle);
-  }, [metrics, current, settings.vertical, settings.font, settings.size, lineHeight]);
+  }, [metrics, current, chapter, settings.vertical, settings.font, settings.size, lineHeight]);
+
+  /*
+   * まだ測っていない章を、画面の外で1章ずつ測る。
+   * 目次の通しページと「本全体であと何ページか」を、見積もりではなく
+   * 実際の数字で出すため。手が空いたときに1章ずつ進めるので、読書の邪魔にならない。
+   */
+  useEffect(() => {
+    if (!metrics || chapters.length === 0) return;
+    const next = chapters.findIndex((_, i) => !chapterPages.current.has(i));
+    if (next < 0) {
+      setMeasuring(null);
+      return;
+    }
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number })
+      .requestIdleCallback;
+    const start = () => setMeasuring(next);
+    if (idle) {
+      const id = idle(start);
+      return () => (window as Window & { cancelIdleCallback?: (id: number) => void })
+        .cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(start, 200);
+    return () => window.clearTimeout(timer);
+  }, [metrics, chapters, measuredCount]);
+
+  useLayoutEffect(() => {
+    const flow = measureRef.current;
+    if (measuring === null || !flow || !metrics) return;
+    const result = layoutFlow(flow, {
+      vertical: settings.vertical,
+      pageWidth: metrics.pageWidth,
+      step: metrics.step,
+      lineHeight,
+    });
+    chapterPages.current.set(measuring, result);
+    setMeasuring(null);
+    setMeasuredCount((n) => n + 1);
+  }, [measuring, metrics, settings.vertical, lineHeight]);
 
   /** 組み直しの前に、いま読んでいる場所（かたまりと、その中の何ページ目か）を覚えておく。 */
   const rememberBlock = useCallback(() => {
@@ -160,6 +217,57 @@ export default function Reader() {
   }, [layout, page]);
 
   const pages = layout?.pages ?? 1;
+
+  /**
+   * 本全体であと何ページか。
+   * すでに開いた章は測った実数を使い、まだ開いていない章は
+   * いま読んでいる章の「1ページあたりの文字数」から見積もる
+   * （見積もりが混ざるときは「約」を付けて示す）。
+   */
+  const remaining = useMemo(() => {
+    if (!layout || !current) return null;
+    const perPage = pages > 0 && current.chars > 0 ? current.chars / pages : 0;
+    let rest = pages - page - 1;
+    let estimated = false;
+    for (let i = chapter + 1; i < chapters.length; i++) {
+      const known = chapterPages.current.get(i);
+      if (known !== undefined) {
+        rest += known.pages;
+      } else if (perPage > 0) {
+        // まだ測れていない章は、いまの章の1ページあたりの文字数から見積もる
+        rest += Math.max(1, Math.round(chapters[i].chars / perPage));
+        estimated = true;
+      } else {
+        estimated = true;
+      }
+    }
+    return { pages: rest, estimated };
+    // 章ごとの組み上がりは ref に貯めるので、測り終えるたびに数え直す
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, page, pages, chapter, chapters, current, measuredCount]);
+
+  /**
+   * 目次に出す通しページ。
+   * 本の先頭から数えたページ数で、すべての章を測り終えるまでは
+   * まだ分からない行を空欄にしておく（当てずっぽうの数字を出さない）。
+   */
+  const tocPages = useMemo(() => {
+    const starts: number[] = [];
+    let total = 0;
+    for (let i = 0; i < chapters.length; i++) {
+      const known = chapterPages.current.get(i);
+      if (!known) break;
+      starts[i] = total;
+      total += known.pages;
+    }
+    return (entry: { chapter: number; id: string }): number | null => {
+      const base = starts[entry.chapter];
+      if (base === undefined) return null;
+      const inside = chapterPages.current.get(entry.chapter)?.anchors.get(entry.id) ?? 0;
+      return base + inside + 1;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapters, measuredCount]);
 
   /* ---------------- ページ移動 ---------------- */
 
@@ -534,6 +642,45 @@ export default function Reader() {
         </div>
       </div>
 
+      {/*
+        画面の外にある測定用の場所。目次の通しページを実際の数字で出すために、
+        まだ開いていない章をここで1章ずつ組んで測る。見えないが、
+        本文と同じ体裁・同じ大きさで組まないと正しく測れないので、
+        表示を消すのではなく画面の外へ追いやっている。
+      */}
+      {metrics && measuring !== null && chapters[measuring] && (
+        <div className="measure-host" aria-hidden>
+          <div
+            className="flow"
+            ref={measureRef}
+            style={
+              settings.vertical
+                ? {
+                    height: metrics.pageHeight,
+                    right: 0,
+                    fontSize: settings.size,
+                    lineHeight: `${lineHeight}px`,
+                    ['--u' as string]: `${lineHeight}px`,
+                    ['--page' as string]: `${metrics.pageWidth}px`,
+                  }
+                : {
+                    height: metrics.pageHeight,
+                    width: metrics.pageWidth,
+                    columnWidth: metrics.pageWidth,
+                    columnGap: gap,
+                    fontSize: settings.size,
+                    lineHeight: `${lineHeight}px`,
+                    ['--u' as string]: `${lineHeight}px`,
+                    ['--page' as string]: `${metrics.pageWidth}px`,
+                  }
+            }
+          >
+            <RenderBlocks blocks={chapters[measuring].blocks} />
+            <div className="md-end" aria-hidden />
+          </div>
+        </div>
+      )}
+
       <footer className={`reader-foot${chrome ? '' : ' hidden'}`}>
         <div className="bar">
           <span
@@ -548,12 +695,21 @@ export default function Reader() {
           <span className="foot-hint">
             {settings.vertical ? '左から右へなぞると次のページ' : '右から左へなぞると次のページ'}
           </span>
-          <span>
-            {pages - page - 1 > 0
-              ? `この章はあと${pages - page - 1}ページ`
-              : chapter < chapters.length - 1
-                ? '次の章へ'
-                : '読了'}
+          <span className="foot-rest">
+            <span>
+              {pages - page - 1 > 0
+                ? `この章 あと${pages - page - 1}ページ`
+                : chapter < chapters.length - 1
+                  ? 'この章の終わり'
+                  : '最後の章'}
+            </span>
+            <span>
+              {remaining === null
+                ? ''
+                : remaining.pages > 0
+                  ? `全体 あと${remaining.estimated ? '約' : ''}${remaining.pages}ページ`
+                  : '読了'}
+            </span>
           </span>
         </div>
       </footer>
@@ -568,7 +724,9 @@ export default function Reader() {
                 className={`toc-item${entry.chapter === chapter ? ' on' : ''}`}
                 onClick={() => jumpTo({ chapter: entry.chapter, anchor: entry.id })}
               >
-                {entry.title || '（無題）'}
+                <span className="toc-title">{entry.title || '（無題）'}</span>
+                {/* 本の目次と同じように、右端に通しページを出す */}
+                <span className="toc-page">{tocPages(entry) ?? ''}</span>
               </button>
             </li>
           ))}
