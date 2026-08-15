@@ -37,12 +37,15 @@ export default function Sheet({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open, onClose]);
 
-  // キーボードが出ている間の「実際に見えている高さ」をCSSに渡す
+  // キーボードが出ている間の「実際に見えている範囲」をCSSに渡す
   useEffect(() => {
     const vv = window.visualViewport;
     if (!open || !vv) return;
     const apply = () => {
-      document.documentElement.style.setProperty('--vvh', `${Math.round(vv.height)}px`);
+      const style = document.documentElement.style;
+      // 見えている高さと、画面の枠の中でのその位置
+      style.setProperty('--vvh', `${Math.round(vv.height)}px`);
+      style.setProperty('--vvt', `${Math.round(vv.offsetTop)}px`);
     };
     apply();
     vv.addEventListener('resize', apply);
@@ -51,6 +54,7 @@ export default function Sheet({
       vv.removeEventListener('resize', apply);
       vv.removeEventListener('scroll', apply);
       document.documentElement.style.removeProperty('--vvh');
+      document.documentElement.style.removeProperty('--vvt');
     };
   }, [open]);
 

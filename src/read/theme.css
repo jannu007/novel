@@ -517,9 +517,18 @@ select {
 
 /* ---------------- シート ---------------- */
 
+/*
+ * シートの土台。
+ * キーボードが出ると、画面の枠は同じままで下端だけがキーボードの裏に隠れる
+ * （Androidの既定の動き）。土台の高さを「実際に見えている高さ」に合わせておくと、
+ * シートはキーボードのすぐ上で止まり、下のボタンが切れない。
+ */
 .sheet-backdrop {
   position: fixed;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: var(--vvt, 0px);
+  height: var(--vvh, 100%);
   z-index: 30;
   display: flex;
   align-items: flex-end;
@@ -529,11 +538,8 @@ select {
 }
 .sheet {
   width: min(560px, 100%);
-  /*
-   * キーボードが出ると見えている高さが縮む。--vvh（実際に見えている高さ）に
-   * 合わせておくと、下のボタンが画面の外に出てしまわない。
-   */
-  max-height: min(88dvh, calc(var(--vvh, 100dvh) - 12px));
+  /* 土台（＝見えている範囲）の中に必ず収める */
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--surface);
