@@ -22,6 +22,7 @@ import ReadPanel from './panels/ReadPanel';
 import ExportPanel from './panels/ExportPanel';
 import SecurityPanel from './panels/SecurityPanel';
 import PrintRoot from './PrintRoot';
+import InstallBar from './components/InstallBar';
 
 type TabId = 'import' | 'structure' | 'design' | 'read' | 'export' | 'safety';
 
@@ -203,6 +204,8 @@ export default function App() {
             {THEME_LABEL[theme]}
           </button>
         </header>
+
+        <InstallBar />
 
         <nav className="tabs" role="tablist">
           {TABS.map((item) => (
