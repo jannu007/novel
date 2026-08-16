@@ -176,14 +176,19 @@ export default function App() {
    */
   useEffect(() => {
     void clearSavedFiles();
-    const onLeave = () => {
+    // ページそのものが終わるとき（別の場所へ移る・閉じる）は、
+    // 見えているかどうかを問わず消す。見え方の合図が先に来るとは
+    // 限らないブラウザがあり、条件を付けると消し損ねるため。
+    const onGone = () => void clearSavedFiles();
+    // 隠れたとき（他のアプリへ移ったときなど）も消す。
+    const onHidden = () => {
       if (document.visibilityState === 'hidden') void clearSavedFiles();
     };
-    window.addEventListener('pagehide', onLeave);
-    document.addEventListener('visibilitychange', onLeave);
+    window.addEventListener('pagehide', onGone);
+    document.addEventListener('visibilitychange', onHidden);
     return () => {
-      window.removeEventListener('pagehide', onLeave);
-      document.removeEventListener('visibilitychange', onLeave);
+      window.removeEventListener('pagehide', onGone);
+      document.removeEventListener('visibilitychange', onHidden);
     };
   }, []);
 
