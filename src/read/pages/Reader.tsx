@@ -67,6 +67,8 @@ export default function Reader() {
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [query, setQuery] = useState('');
   const [hit, setHit] = useState<{ chapter: number; block: number } | null>(null);
+  /** 本文の中の「外を指すリンク」を押したとき、行き先を確かめてもらうための控え。 */
+  const [outLink, setOutLink] = useState<string | null>(null);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const flowRef = useRef<HTMLDivElement>(null);
@@ -118,9 +120,16 @@ export default function Reader() {
     };
   }, [id]);
 
+  /*
+   * 画面の題名（タブ名）には、本の題名を入れない。
+   *
+   * ここに入れた文字は、閲覧履歴・タブの一覧・端末のアプリ切り替え画面に残り、
+   * ブラウザの同期を使っていれば他の端末にも渡っていく。本文は端末の外に
+   * 出さない造りにしてあるので、題名だけが漏れる経路も塞いでおく。
+   */
   useEffect(() => {
-    if (record?.title) document.title = `${record.title} | 栞`;
-  }, [record?.title]);
+    document.title = '栞';
+  }, [id]);
 
   /* ---------------- 版面の大きさ ---------------- */
 
@@ -382,6 +391,14 @@ export default function Reader() {
     },
     [book, jumpTo]
   );
+
+  /**
+   * 本の外を指すリンクを押したとき。
+   * その場では開かず、行き先を見せて確かめてもらう（誤って外に出ないように）。
+   */
+  const onExternal = useCallback((href: string) => {
+    setOutLink(href);
+  }, []);
 
   /* ---------------- 読書位置の記録 ---------------- */
 
@@ -746,6 +763,7 @@ export default function Reader() {
                   <RenderBlocks
                     blocks={current.blocks}
                     onJump={onJump}
+                    onExternal={onExternal}
                     highlight={hit && hit.chapter === chapter ? hit.block : undefined}
                   />
                 )}
@@ -1042,6 +1060,35 @@ export default function Reader() {
               なし
             </button>
           </div>
+        </div>
+      </Sheet>
+
+      {/*
+        本文の中の「外を指すリンク」を押したときの確認。
+        押しただけでは何も起きない。ここで自分の目で行き先を見て、
+        それでも開くと決めたときだけ外のアプリに渡す。
+      */}
+      <Sheet open={outLink !== null} title="このリンクは本の外です" onClose={() => setOutLink(null)}>
+        <p className="sheet-note">
+          押すと栞の外（ブラウザなど別のアプリ）に移ります。移った先には、
+          あなたがここを開いたことが記録として残ることがあります。
+          本文そのものは渡りません。
+        </p>
+        <p className="link-dest">{outLink}</p>
+        <div className="sheet-actions">
+          <button className="btn btn-ghost" onClick={() => setOutLink(null)}>
+            開かない
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              const href = outLink;
+              setOutLink(null);
+              if (href) window.open(href, '_blank', 'noopener,noreferrer');
+            }}
+          >
+            それでも開く
+          </button>
         </div>
       </Sheet>
     </div>

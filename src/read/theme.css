@@ -650,6 +650,12 @@ select {
 .sheet-sub {
   border-top: 1px solid var(--line);
   padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sheet-sub > p {
+  margin: 0;
 }
 @keyframes rise {
   from {
@@ -1306,4 +1312,55 @@ select {
   cursor: pointer;
   text-decoration: underline;
   font: inherit;
+}
+
+/*
+  本の外を指すリンク。押しても移動せず、行き先を確かめる紙が出る。
+  「本の中の移動」と見分けが付くように、点線の下線にしている。
+*/
+.md-link-out {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  font: inherit;
+}
+
+/* 確認の紙に出す行き先のURL。長くても折り返して全部見えるようにする。 */
+.link-dest {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.sheet-note {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  line-height: 1.8;
+}
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+}
+.sheet-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* 他所のページに埋め込まれたときの案内（src/read/main.tsx） */
+.framed-stop {
+  padding: 32px 20px;
+  font-size: 0.95rem;
+  line-height: 1.9;
 }

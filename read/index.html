@@ -4,14 +4,17 @@
     <meta charset="UTF-8" />
     <!--
       安全のための宣言（CSP）。
-      このアプリは通信を一切しないので、外部への接続・外部の読み込みを
-      ブラウザ側でまとめて禁止している。万一なにかが紛れ込んでも、
-      本文が外に送られたり、外部のコードが動いたりすることはない。
+      このアプリは通信を一切しない。だから「外へ送る手段」そのものを
+      ブラウザ側で禁止している。とくに connect-src 'none' は、
+      fetch・XMLHttpRequest・WebSocket・sendBeacon・EventSource を
+      すべて封じる指定で、万一なにかが紛れ込んでも本文を送り出せない。
+      画像も端末の中で作ったもの（data: / blob:）しか読み込めないので、
+      本文に外部の画像URLが書かれていても取りに行かない。
       （開発サーバーでは vite.config.ts がこの行を緩めて動かしている）
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; child-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; media-src 'none'; manifest-src 'self'; worker-src 'self'; child-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
     />
     <meta name="referrer" content="no-referrer" />
     <!--
