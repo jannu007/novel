@@ -16,6 +16,7 @@ import {
   type WorkImage,
 } from '../images';
 import { importBackup } from '../backup';
+import { listPendingStudioWorks, importStudioWorks } from '../studioWorks';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -33,6 +34,9 @@ export default function Home() {
   /** 表紙を選ぶ・直す対象の作品 */
   const [coverTarget, setCoverTarget] = useState<string | null>(null);
   const [editingCover, setEditingCover] = useState<WorkImage | null>(null);
+  /** 従来アプリ側にあって、まだ文机へ来ていない作品 */
+  const [pending, setPending] = useState<Novel[]>([]);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     void refresh();
@@ -42,6 +46,25 @@ export default function Home() {
     const list = await listWorks();
     setWorks(list);
     await refreshCovers(list);
+    setPending(await listPendingStudioWorks());
+  }
+
+  /** 小説執筆スタジオで書いた作品を、まとめてこちらへ写す。 */
+  async function bringOverStudioWorks() {
+    setImporting(true);
+    try {
+      const count = await importStudioWorks(pending);
+      await refresh();
+      alert(
+        count > 0
+          ? `${count}件の作品を取り込みました。`
+          : '取り込む作品はありませんでした。'
+      );
+    } catch {
+      alert('作品を取り込めませんでした。');
+    } finally {
+      setImporting(false);
+    }
   }
 
   /** 表紙を読み込み直す。前に作った一時URLは解放する。 */
@@ -192,12 +215,38 @@ export default function Home() {
 
         {works === null && <p className="muted" style={{ marginTop: 20 }}>読み込み中…</p>}
 
+        {works && pending.length > 0 && (
+          <div className="card stack notice">
+            <b>小説執筆スタジオに{pending.length}件の作品があります</b>
+            <p className="muted" style={{ margin: 0 }}>
+              2つのアプリは別々の場所に保存しているため、あちらで書いた作品は
+              この一覧には出てきません。こちらへ写すと、縦書きや挿絵も使えます。
+              あちらの作品はそのまま残ります。
+            </p>
+            <button
+              className="btn btn-wide"
+              disabled={importing}
+              onClick={() => void bringOverStudioWorks()}
+            >
+              {importing ? '取り込み中…' : 'こちらへ取り込む'}
+            </button>
+          </div>
+        )}
+
         {works && works.length === 0 && (
           <div className="empty">
             <span className="mark">白</span>
             まだ作品がありません。
             <br />
             最初の一冊をはじめましょう。
+            {pending.length === 0 && (
+              <span className="empty-note">
+                作品はこの端末のブラウザごとに保存されます。以前書いた作品が
+                見あたらないときは、書いたときと同じブラウザで開いているか
+                （アプリ内で開く簡易ブラウザは別扱いになります）、「設定」から
+                バックアップを読み込めるかをお確かめください。
+              </span>
+            )}
           </div>
         )}
 
@@ -326,10 +375,24 @@ export default function Home() {
           <p className="muted" style={{ marginTop: 16 }}>
             「文机」は完全無料・広告なしのアプリです。作品の著作権はすべて書いた本人にあります。
           </p>
+          <div className="section-title">小説執筆スタジオから移す</div>
           <p className="muted">
-            以前の「小説執筆スタジオ」で書いた作品は、あちらの画面で保存した
-            バックアップJSONを上の「バックアップから読み込む」で取り込めます。
-            <br />
+            同じ端末の同じブラウザなら、あちらで書いた作品をそのまま取り込めます
+            （あちらの作品は消えません）。別の端末から移すときは、あちらで保存した
+            バックアップJSONを上の「バックアップから読み込む」で読んでください。
+          </p>
+          <button
+            className="btn btn-wide"
+            disabled={importing || pending.length === 0}
+            onClick={() => void bringOverStudioWorks()}
+          >
+            {importing
+              ? '取り込み中…'
+              : pending.length > 0
+                ? `${pending.length}件の作品を取り込む`
+                : '取り込める作品はありません'}
+          </button>
+          <p className="muted" style={{ marginTop: 16 }}>
             <a href="../" style={{ color: 'var(--seal)' }}>
               小説執筆スタジオを開く
             </a>
