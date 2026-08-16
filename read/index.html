@@ -1,7 +1,14 @@
 <!doctype html>
-<html lang="ja">
+<!--
+  translate="no"：ブラウザの「このページを翻訳しますか？」を止める。
+  翻訳はページの文字を翻訳サーバーへ送って行われるため、CSPでは防げない
+  （ブラウザ自身の機能なので、ページに掛けた通信の決まりの外側で動く）。
+  本文がそこへ渡らないよう、翻訳の対象にしない宣言をしておく。
+-->
+<html lang="ja" translate="no">
   <head>
     <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
     <!--
       安全のための宣言（CSP）。
       このアプリは通信を一切しない。だから「外へ送る手段」そのものを

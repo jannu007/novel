@@ -398,6 +398,11 @@ export default function Library() {
           className="input"
           placeholder="題名（省略できます）"
           value={pastedTitle}
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          data-gramm="false"
           onChange={(e) => setPastedTitle(e.target.value)}
         />
         <p className="muted small paste-hint">
@@ -431,10 +436,23 @@ export default function Library() {
             クリップボードから読み取れませんでした。下の欄を長押しして「貼り付け」を選んでください。
           </p>
         )}
+        {/*
+          spellCheck={false} は見た目のためではなく、安全のための指定。
+          ブラウザの「高度なスペルチェック」は、入力欄の文字を
+          そのままメーカーのサーバーへ送って調べるしくみで、これは
+          ブラウザ自身の機能なのでCSPでは止められない。この欄には
+          本1冊ぶんの原稿が入りうるので、対象から外しておく。
+          autoComplete も同じ理由（入力履歴として端末に残さない）。
+        */}
         <textarea
           className="input textarea"
           placeholder="Markdown を貼り付けてください"
           value={pasted}
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          data-gramm="false"
           onChange={(e) => setPasted(e.target.value)}
         />
       </Sheet>
@@ -627,6 +645,24 @@ export default function Library() {
             書き足しても、その一行は動かないということです。
           </li>
           <li>
+            <strong>送る道具そのものを取り上げています。</strong>
+            上のCSPが効かない場所（一部のアプリ内ブラウザなど）でも困らないよう、
+            起動した瞬間に <code>fetch</code> などの道具を、あとから戻せない形で
+            使えなくしています。道具が無ければ、そもそも送れません。
+          </li>
+          <li>
+            <strong>ブラウザの翻訳機能を止めています。</strong>
+            「このページを翻訳しますか？」は、<strong>ページの文字を翻訳会社のサーバーへ
+            送って</strong>行われます。ブラウザ自身の機能なので上の禁止では止まりません。
+            そこで、このページを翻訳の対象にしない宣言をしています。
+          </li>
+          <li>
+            <strong>入力欄のスペルチェックを切っています。</strong>
+            ブラウザの「高度なスペルチェック」は、入力した文字を
+            <strong>メーカーのサーバーへ送って</strong>調べます。貼り付け欄には本1冊ぶんの
+            原稿が入りうるので、対象から外してあります（探した言葉も同じです）。
+          </li>
+          <li>
             <strong>本の題名も外に出しません。</strong>
             画面の題名（タブの名前）には本の題名を入れていません。閲覧履歴や
             アプリ切り替え画面、ブラウザの同期に本の題名が残らないようにするためです。
@@ -664,6 +700,12 @@ export default function Library() {
           <li>
             <strong>保存はこの端末だけ。</strong>
             アカウントも登録も不要で、完全に無料です。
+          </li>
+          <li>
+            <strong>あとから崩れないようにしています。</strong>
+            ここに書いたことが1つでも崩れると、栞は<strong>組み立てに失敗して
+            公開されません</strong>。人が気をつけるだけだと、いつか一行足したときに
+            静かに破れてしまうためです。
           </li>
           <li>
             <strong>アプリとして入れても、安全のしくみは同じです。</strong>

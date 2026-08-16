@@ -893,11 +893,17 @@ export default function Reader() {
 
       {/* ---- 検索 ---- */}
       <Sheet open={sheet === 'search'} title="本文を検索" onClose={() => setSheet(null)}>
+        {/* 探した言葉が外（スペルチェックの照会・入力履歴）に残らないようにする */}
         <input
           className="input"
           autoFocus
           value={query}
           placeholder="探したい言葉"
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          data-gramm="false"
           onChange={(e) => setQuery(e.target.value)}
         />
         <p className="muted">
