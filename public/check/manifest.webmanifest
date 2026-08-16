@@ -1,0 +1,46 @@
+{
+  "name": "検品所 - 出す前に売り場を下見する",
+  "short_name": "検品所",
+  "description": "作ったEPUBを、Amazonの商品ページ風に下見できます。表紙・題名・紹介文・目次の見え方を、出版する前に確認できます。完全無料・通信なし・保存なし。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#131921",
+  "theme_color": "#131921",
+  "lang": "ja",
+  "categories": [
+    "productivity",
+    "books"
+  ],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/epub+zip": [
+          ".epub"
+        ]
+      }
+    }
+  ]
+}

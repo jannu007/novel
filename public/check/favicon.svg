@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="検品所">
+  <rect width="64" height="64" rx="14" fill="#131921" />
+  <path d="M10 20c7-3 14-3 21 1v27c-7-4-14-4-21-1z" fill="#f7f3ea" />
+  <path d="M54 20c-7-3-14-3-21 1v27c7-4 14-4 21-1z" fill="#e6dcc8" />
+  <path d="M32 21v27" stroke="#131921" stroke-width="2" />
+  <circle cx="44" cy="18" r="7.6" fill="none" stroke="#ff9900" stroke-width="2.8" />
+  <path d="M49.6 23.6 L57 31" stroke="#ff9900" stroke-width="3.2" stroke-linecap="round" />
+</svg>
