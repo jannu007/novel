@@ -6,6 +6,17 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
     />
+    <!--
+      外への持ち出しを、ブラウザの側から禁じておく決まり書き（CSP）。
+      同じサイトの中に複数のアプリが同居しているため、ここにも同じ決まりを置く。
+      同じサイトに置かれたページは、互いの保存場所を読める。どれか一つでも
+      外へ送れる口が開いていれば、そこが抜け道になってしまう。
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; child-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#14120f" />
     <meta
       name="description"

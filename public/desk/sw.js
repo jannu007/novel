@@ -20,6 +20,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  // 同じサイトのファイル以外には一切関与しない。
+  // ここで外の宛先も扱えるようにしておくと、外へ出る通り道が
+  // 一つ増えてしまう。取りにいかないし、控えも取らない。
+  if (new URL(event.request.url).origin !== self.location.origin) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {

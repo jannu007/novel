@@ -6,9 +6,25 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
     />
+    <!--
+      外への持ち出しを、ブラウザの側から禁じておく決まり書き（CSP）。
+
+      既定を 'none'（何も許さない）にしたうえで、このアプリ自身のファイルだけを
+      名指しで許している。ここに 'none' と書いてある通り道は、たとえ将来
+      誤って通信を書いてしまっても、ブラウザが拒む。
+
+        connect-src 'none'  … fetch・XMLHttpRequest・WebSocket・sendBeacon・
+                              EventSource のすべてを禁じる（＝送信口がない）
+        img-src             … 自分のファイルと、その場で作った絵だけ。
+                              原稿に外部の画像が書かれていても取りにいかない
+        form-action 'none'  … どこへも送信しない
+        base-uri 'none'     … 読み込み先をすり替えられないようにする
+        frame-src / child-src / object-src / media-src 'none'
+                            … 外の中身を抱え込む窓を作らせない
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; child-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'"
     />
     <meta name="theme-color" content="#1f5f6b" />
     <meta name="referrer" content="no-referrer" />

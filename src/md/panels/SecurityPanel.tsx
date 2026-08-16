@@ -53,8 +53,11 @@ export default function SecurityPanel({
             <span>
               通信そのものを禁止しています
               <small>
-                ページの許可設定（CSP）で <code>connect-src 'none'</code> を指定しています。仮に何かが
-                原稿を送ろうとしても、ブラウザが通信を止めます。
+                ページの許可設定（CSP）を <code>default-src 'none'</code>（既定は何も許さない）から始め、
+                このアプリ自身のファイルだけを名指しで許しています。送信口である{' '}
+                <code>connect-src</code> は <code>'none'</code> です。fetch・XMLHttpRequest・WebSocket・
+                sendBeacon・EventSource のすべてと、原稿に書かれた外部の画像も、ブラウザが拒みます。
+                この決まりは、同じサイトに置いた他のアプリにも同じように入れてあります。
               </small>
             </span>
           </li>
