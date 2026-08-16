@@ -396,6 +396,28 @@ select {
   margin-bottom: 12px;
 }
 
+/* 空の一覧に添える但し書き。本文より一段小さく、控えめに。 */
+.empty .empty-note {
+  display: block;
+  margin: 18px auto 0;
+  max-width: 30em;
+  font-size: 12px;
+  line-height: 1.85;
+  text-align: left;
+  color: var(--ink-3);
+  opacity: 0.85;
+}
+
+/* 見落としてほしくない案内。左に朱の縦線を引いて他の札と区別する。 */
+.card.notice {
+  margin-top: 18px;
+  border-left: 3px solid var(--seal);
+}
+
+.card.notice b {
+  font-family: var(--serif);
+}
+
 /* ---------------- 作品一覧 ---------------- */
 
 .hero {

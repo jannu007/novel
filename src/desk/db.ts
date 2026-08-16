@@ -35,6 +35,15 @@ export async function saveWork(work: Novel): Promise<void> {
   await set(workKey(work.id), work, store);
 }
 
+/**
+ * 書いた日時をそのままに保存する。
+ * よそから作品を取り込むときに使う。取り込んだ時刻で上書きしてしまうと、
+ * 一覧の並び（新しい順）が取り込み順になってしまうため。
+ */
+export async function saveWorkAsIs(work: Novel): Promise<void> {
+  await set(workKey(work.id), work, store);
+}
+
 export async function deleteWork(id: string): Promise<void> {
   await del(workKey(id), store);
   await del(undoKey(id), store);
