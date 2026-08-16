@@ -38,14 +38,14 @@ genre: ファンタジー
 `;
 
 /**
- * 種類を指定して選ぶときの accept。
- * 端末によってはこれを付けたほうがファイルアプリが出て、逆に付けると
- * 「カメラ」「写真」しか出なくなる端末もある。どちらが効くかは端末次第なので、
- * 主のボタンは種類を指定せず（＝いちばん間口の広い形）、
- * こちらは選び直し用として置いてある。
- * 画像も原稿も、受け取ったあとに中身で見分けるので、指定は無くても困らない。
+ * 原稿を選ぶときの種類（accept）。
+ *
+ * ここは「栞」（/read/）とまったく同じにしてある。同じ端末で栞は選べており、
+ * 製本所だけ選べなかったため、違いをなくした。
+ * 見慣れない拡張子（.mkd など）を並べると、端末がそれを解決できず
+ * 「なんでも」の求めとみなして、カメラと写真だけを出すことがある。
  */
-const TEXT_ACCEPT = '.md,.markdown,.mdown,.mkd,.mdtext,.txt,.text,text/markdown,text/plain';
+const TEXT_ACCEPT = '.md,.markdown,.txt,text/markdown,text/plain';
 
 export default function ImportPanel({ onSource, onFiles, onDone, ready }: Props) {
   const [over, setOver] = useState(false);
@@ -86,15 +86,17 @@ export default function ImportPanel({ onSource, onFiles, onDone, ready }: Props)
       <h2>原稿を読み込む</h2>
 
       {/*
-        ファイル選択の入力欄。スマートフォンでは端末ごとの差が大きい。
+        ファイル選択の入力欄。スマートフォンでは端末ごとの差が大きく、
+        同じリポジトリの「栞」（/read/）で確かめられている形にそろえてある。
 
-        - **主のボタンは種類（accept）を指定しない。** 種類を指定すると、
-          それを写真の求めと受け取って「カメラ」「写真」しか出さない端末がある。
-          指定しなければ、ふつうのファイル選択が開く見込みがいちばん高い。
-          何が渡されても、画像か文書かは中身を見て判断している。
+        - **種類（accept）は、よく知られたものだけを短く並べる。**
+          見慣れない拡張子を混ぜると、端末がそれを解決できず「なんでも」の
+          求めとみなして、カメラと写真だけを出すことがある。
         - **`multiple` を付けない。** 複数選択を求めると、それに対応しない
           ファイルアプリが候補から外される（Samsungの「マイファイル」など）。
           まとめて選びたいときのために、別のボタンを用意してある。
+        - **入力欄は描画しておく（見えないだけ）。** hidden で消してしまうと、
+          端末によって扱いが変わることがある。
         - **押すのは <label> から。** 利用者が入力欄そのものを押したことになる
           （JavaScriptから開くと、はじかれる端末がある）。
       */}
@@ -113,29 +115,41 @@ export default function ImportPanel({ onSource, onFiles, onDone, ready }: Props)
         }}
       >
         <b>ファイルを選ぶ</b>
-        <span>.md .markdown .txt と、挿絵にする画像</span>
+        <span>.md .markdown .txt（画像は「種類を指定せずに選ぶ」から）</span>
         <span>1つずつ選んでも、選ぶたびにうしろへ足していきます</span>
       </label>
 
-      <input id="md-pick" type="file" hidden onChange={onPicked} />
-      <input id="md-pick-multi" type="file" multiple hidden onChange={onPicked} />
-      <input id="md-pick-typed" type="file" accept={TEXT_ACCEPT} hidden onChange={onPicked} />
       {/*
-        いちばん広く知られている種類だけを指定した欄。
-        `.md` のような知らない拡張子が混ざると、端末が「写真の求め」と
-        受け取ってしまうことがあるため、text/plain だけで開く道も置く。
+        入力欄は hidden（描画しない）にせず、見えないだけの形にしてある。
+        栞（/read/）がこの形で、同じ端末でファイルを選べているため。
       */}
-      <input id="md-pick-text" type="file" accept="text/plain" hidden onChange={onPicked} />
+      <input
+        id="md-pick"
+        type="file"
+        accept={TEXT_ACCEPT}
+        className="file-input"
+        onChange={onPicked}
+      />
+      <input
+        id="md-pick-multi"
+        type="file"
+        multiple
+        accept={TEXT_ACCEPT}
+        className="file-input"
+        onChange={onPicked}
+      />
+      <input id="md-pick-plain" type="file" className="file-input" onChange={onPicked} />
 
       <div className="btn-row" style={{ marginTop: 12 }}>
+        {/* 栞と同じく、押しやすいボタンの形でも同じ入力欄を開けるようにしておく */}
+        <label className="btn primary" htmlFor="md-pick">
+          ファイルを選ぶ
+        </label>
         <label className="btn ghost" htmlFor="md-pick-multi">
           まとめて選ぶ
         </label>
-        <label className="btn ghost" htmlFor="md-pick-typed">
-          種類を指定して選ぶ
-        </label>
-        <label className="btn ghost" htmlFor="md-pick-text">
-          テキストとして選ぶ
+        <label className="btn ghost" htmlFor="md-pick-plain">
+          種類を指定せずに選ぶ
         </label>
       </div>
 
