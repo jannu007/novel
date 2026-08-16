@@ -4,6 +4,10 @@ import { HashRouter } from 'react-router-dom';
 import './theme.css';
 import App from './App';
 import { initSettings } from './settings';
+import { lockdown } from './lockdown';
+
+// 何より先に、外へ送る道具を取り上げる（CSPが効かない場所への備え）
+lockdown();
 
 // 最初の描画の前に配色を決めておき、明→暗のちらつきを避ける
 initSettings();

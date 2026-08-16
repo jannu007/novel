@@ -201,6 +201,18 @@ UTF-8 のほか、**Shift_JIS・EUC-JP も自動判別**します。表紙は題
   ブラウザに拒否されて動きません。あわせて `default-src 'none'` を土台に、
   `img-src` は `self data: blob:`（＝端末の中のものだけ）、`media-src` / `object-src` /
   `frame-src` / `child-src` は `'none'`、`base-uri` と `form-action` も `'none'` にしています。
+- **送る道具そのものを取り上げます。** 起動直後に `fetch` / `XMLHttpRequest` / `WebSocket` /
+  `EventSource` / `RTCPeerConnection` / `navigator.sendBeacon` を、`writable: false` かつ
+  `configurable: false` で置き換えます（`src/read/lockdown.ts`）。差し替えも `delete` もできません。
+  CSPは「配信されたHTMLの宣言をブラウザが守る」前提なので、`<meta>` のCSPを読み飛ばす
+  アプリ内ブラウザや、CSPの効かない拡張機能に対する備えです。とくに **WebRTC は
+  `connect-src` の対象外になる環境がある**ため、ここで塞ぐ意味があります。
+- **ブラウザの翻訳機能を止めます。** `<html translate="no">` と `<meta name="google"
+  content="notranslate">` を入れています。ページ翻訳は**本文を翻訳サーバーへ送って**
+  行われるうえ、ブラウザ自身の機能なので **CSPでは止まりません**。
+- **入力欄のスペルチェックを切ります。** `spellCheck={false}` は見た目の指定ではなく安全の指定です。
+  ブラウザの「高度なスペルチェック」は入力文字を**メーカーのサーバーへ送って**照合します。
+  貼り付け欄には本1冊ぶんの原稿が入りうるので、検索欄・題名欄とあわせて対象から外しています。
 - **本の題名を `document.title` に入れません。** タブ名は常に「栞」です。ここに入れた文字は
   閲覧履歴・タブ一覧・アプリ切り替え画面に残り、ブラウザの同期があれば他端末にも渡るためです。
 - **本文をHTMLとして解釈しません。** Markdownの解析結果は文字列ではなく構造（AST）で返し、
@@ -225,6 +237,13 @@ UTF-8 のほか、**Shift_JIS・EUC-JP も自動判別**します。表紙は題
 - **確かめられるようにしています。** 本棚の「安全のしくみ」に、その画面を開いてからの
   外部通信の件数（`performance.getEntriesByType('resource')` を数えたもの）を出しています。
   機内モードのままで取り込みも読書もできるので、実際に切って確かめられます。
+- **崩れたらビルドが失敗します。** `scripts/check-shiori-safety.mjs` が `npm run build` の
+  一部として走り、**実際に配信される `dist/` の中身**に対して、CSPの必須指定・翻訳の禁止・
+  `img-src` の内容・通信の道具の呼び出し・`dangerouslySetInnerHTML` の不在を確かめます。
+  1つでも崩れていれば終了コード1でビルドを止めるので、公開されません。
+  ここで文字列や注釈や正規表現を取り除いてから調べているのは、`/["']/` のような
+  正規表現を文字列の始まりと読み違えると、以降がまるごと見逃されるためです
+  （実際にその状態で本物の `fetch(` を素通ししたので、検査の側を直しました）。
 
 #### アプリでは守れない範囲
 
