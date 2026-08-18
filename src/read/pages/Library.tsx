@@ -4,7 +4,7 @@
  * ファイルを選ぶ・画面に落とす・文章を貼り付ける、の3通りで本を増やせる。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cover from '../components/Cover';
 import { useBookCover } from '../useBookCover';
@@ -18,10 +18,18 @@ import {
   TrashIcon,
 } from '../components/Icons';
 import { useInstallPrompt } from '../../lib/useInstallPrompt';
-import { clearLibrary, deleteBook, listBooks, saveBook, type BookRecord } from '../db';
+import {
+  clearLibrary,
+  deleteBook,
+  listBooks,
+  recountBooks,
+  saveBook,
+  type BookRecord,
+} from '../db';
 import { clearCovers, deleteCover } from '../cover';
 import { downloadSource, makeBook, readBookFiles, takeSharedFiles } from '../import';
-import { readingMinutes } from '../book';
+import { countBook, readingMinutes } from '../book';
+import { COUNT_RULE } from '../count';
 import { SAMPLE_BOOK, SAMPLE_FILE_NAME } from '../sample';
 import {
   chromeIntentUrl,
@@ -52,11 +60,28 @@ export default function Library() {
     () => localStorage.getItem(NOTICE_KEY) === '1'
   );
   const [clipboardFailed, setClipboardFailed] = useState(false);
+  /** 文字数の内訳を見せている本（見せていないときは null）。 */
+  const [counted, setCounted] = useState<BookRecord | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const refresh = useCallback(async () => {
-    setBooks(await listBooks());
+  /**
+   * 文字数の数え方を直したあと、古い数のまま残っている本を数え直す。
+   * 取り込んだときの数を保存してあるので、数え方を直しただけでは古いままになる。
+   *
+   * 先に棚を出してから数え直すのは、長い本が何冊もあると数え直しに
+   * 1秒近くかかることがあり、そのあいだ棚が真っ白になるのを避けるため。
+   * 一度直せば目印が付くので、次に開いたときは何もしない。
+   */
+  const recount = useCallback((list: BookRecord[]) => {
+    if (list.every((b) => b.countRule === COUNT_RULE)) return;
+    recountBooks(list, COUNT_RULE, (source) => countBook(source).body).then(setBooks);
   }, []);
+
+  const refresh = useCallback(async () => {
+    const list = await listBooks();
+    setBooks(list);
+    recount(list);
+  }, [recount]);
 
   useEffect(() => {
     // はじめて開いたときだけ「使い方の本」を入れておく
@@ -74,8 +99,9 @@ export default function Library() {
         return;
       }
       setBooks(existing);
+      recount(existing);
     })();
-  }, []);
+  }, [recount]);
 
   const addFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -303,10 +329,15 @@ export default function Library() {
                 <div className="shelf-meta">
                   <strong>{book.title}</strong>
                   {book.author && <span className="muted">{book.author}</span>}
-                  <span className="muted small">
+                  {/* 数え方が気になったときに、内訳をその場で確かめられるようにする */}
+                  <button
+                    className="shelf-count"
+                    onClick={() => setCounted(book)}
+                    title="文字数の内訳を見る"
+                  >
                     {book.chars.toLocaleString()}字・約{readingMinutes(book.chars)}分
                     {book.position ? '・読みかけ' : ''}
-                  </span>
+                  </button>
                 </div>
                 <div className="shelf-actions">
                   <button
@@ -620,6 +651,9 @@ export default function Library() {
         </p>
       </Sheet>
 
+      {/* ---- 文字数の内訳 ---- */}
+      <CountSheet book={counted} onClose={() => setCounted(null)} />
+
       {/* ---- 安全のしくみ ---- */}
       <Sheet open={sheet === 'about'} title="安全のしくみ" onClose={() => setSheet(null)}>
         <div className="notice">
@@ -748,6 +782,62 @@ export default function Library() {
         </div>
       </Sheet>
     </div>
+  );
+}
+
+/**
+ * 文字数の内訳。
+ *
+ * 「文字数」は数え方で1割ちかく変わる。本棚に出しているのは本文の数なので、
+ * 書いた道具（エディタ）が出す数と違って見えることがある。
+ * どの数え方でいくつになるかを並べて、食い違いの理由が分かるようにする。
+ */
+function CountSheet({ book, onClose }: { book: BookRecord | null; onClose: () => void }) {
+  // 開いている本だけ数える（本棚を開くたびに全部数えると重いため）
+  const counts = useMemo(() => (book ? countBook(book.source) : null), [book]);
+
+  return (
+    <Sheet open={book !== null} title="文字数の内訳" onClose={onClose}>
+      {book && counts && (
+        <>
+          <p className="sheet-note">
+            「{book.title}」を、3通りの数え方で数えた結果です。
+            本棚に出しているのは<strong>本文</strong>の数です。
+          </p>
+          <dl className="count-list">
+            <div>
+              <dt>
+                本文
+                <span className="muted small">ページに出る文字だけ</span>
+              </dt>
+              <dd>
+                <strong>{counts.body.toLocaleString()}</strong>字
+              </dd>
+            </div>
+            <div>
+              <dt>
+                ルビの読みを含む
+                <span className="muted small">｜漢字《かんじ》の「かんじ」も数える</span>
+              </dt>
+              <dd>{counts.withRuby.toLocaleString()}字</dd>
+            </div>
+            <div>
+              <dt>
+                原文そのまま
+                <span className="muted small">記号も改行も全部数える</span>
+              </dt>
+              <dd>{counts.raw.toLocaleString()}字</dd>
+            </div>
+          </dl>
+          <p className="muted small">
+            本文は、Markdownの記号（<code>#</code> や <code>｜</code>《》）・ルビの読み・
+            空白・改行を除いた数です。市販の本で「約◯万字」というときの数え方に近く、
+            読む時間の目安（約{readingMinutes(counts.body)}分）もこの数から出しています。
+            文章を書く道具が出す数は、たいてい「原文そのまま」に近くなります。
+          </p>
+        </>
+      )}
+    </Sheet>
   );
 }
 
