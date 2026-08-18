@@ -7,7 +7,8 @@
  *   3. 目次             … 見出しの階層をそのまま並べる
  */
 
-import { parseMarkdown, inlineText, type Block } from './markdown';
+import { parseMarkdown, type Block } from './markdown';
+import { blockChars, countBlocks, type BookCounts } from './count';
 
 export interface Chapter {
   /** 章の題（本文中では見出しとしても表示する） */
@@ -62,31 +63,6 @@ export function splitFrontMatter(source: string): { meta: FrontMatter; body: str
 
 /** 章が長くなりすぎたときに分ける目安（この文字数を超えたら段落の切れ目で割る）。 */
 const MAX_CHAPTER_CHARS = 40000;
-
-function blockChars(block: Block): number {
-  switch (block.type) {
-    case 'paragraph':
-      return inlineText(block.children).length;
-    case 'heading':
-      return block.plain.length;
-    case 'code':
-      return block.code.length;
-    case 'quote':
-      return block.children.reduce((n, b) => n + blockChars(b), 0);
-    case 'list':
-      return block.items.reduce(
-        (n, item) => n + item.reduce((m, b) => m + blockChars(b), 0),
-        0
-      );
-    case 'table':
-      return block.rows.reduce(
-        (n, row) => n + row.reduce((m, cell) => m + inlineText(cell).length, 0),
-        0
-      );
-    default:
-      return 0;
-  }
-}
 
 /**
  * 見出しの深さを見て、どの階層で章を分けるかを決める。
@@ -204,8 +180,28 @@ export function buildBook(source: string, fallbackTitle: string): BookContent {
     author: (meta.author || meta.authors || '').trim(),
     chapters: split,
     toc,
-    chars: split.reduce((n, c) => n + c.chars, 0),
+    /*
+     * 本文からは外した題名の見出しも数に入れる（扉のページに出るため）。
+     * こうしておくと、本棚に出す数と `countBook` の内訳がぴったり一致する。
+     */
+    chars: countBlocks(parsed),
     chapterOfId: remap,
+  };
+}
+
+/**
+ * 原稿ひとつぶんの文字数を、3通りまとめて数える。
+ *
+ * 章の分け方や題名の扱いといった「見せ方の都合」で数が動かないよう、
+ * 本の組み立てとは切り離して、原稿から直接数える。
+ */
+export function countBook(source: string): BookCounts {
+  const { body } = splitFrontMatter(source);
+  const blocks = parseMarkdown(body);
+  return {
+    body: countBlocks(blocks, false),
+    withRuby: countBlocks(blocks, true),
+    raw: source.length,
   };
 }
 

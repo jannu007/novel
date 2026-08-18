@@ -16,6 +16,7 @@
  */
 
 import { buildBook } from './book';
+import { COUNT_RULE } from './count';
 import { seedOf, type BookRecord } from './db';
 
 /** 取り込めるファイルの上限（1冊あたり）。 */
@@ -88,6 +89,7 @@ export function makeBook(source: string, fileName: string): BookRecord {
     source,
     fileName,
     chars: built.chars,
+    countRule: COUNT_RULE,
     addedAt: now,
     openedAt: now,
     bookmarks: [],

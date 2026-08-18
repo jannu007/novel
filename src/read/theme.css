@@ -647,6 +647,54 @@ select {
   color: var(--ink-3);
   font-size: 0.7rem;
 }
+/* 本棚の「◯字・約◯分」。押すと文字数の内訳が出る */
+.shelf-count {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  text-align: start;
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--ink-3);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+/* 文字数の内訳 */
+.count-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.count-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-block-end: 1px solid var(--line);
+}
+.count-list > div:last-child {
+  border-block-end: none;
+}
+.count-list dt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.count-list dd {
+  margin: 0;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.count-list dd strong {
+  font-size: 1.15rem;
+}
+
 .sheet-sub {
   border-top: 1px solid var(--line);
   padding-top: 10px;

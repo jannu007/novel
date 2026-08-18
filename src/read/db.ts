@@ -41,13 +41,49 @@ export interface BookRecord {
   /** 取り込んだ Markdown そのもの。書き出しでそのまま返せるように原文を残す。 */
   source: string;
   fileName: string;
+  /** 本文の文字数（数え方は `src/read/count.ts`）。 */
   chars: number;
+  /**
+   * その `chars` がどの数え方で出されたか。
+   * 数え方を直したときに、古い数のまま残っている本を見分けて数え直すために使う。
+   * 付いていない本は、数え方を分ける前に取り込んだ本。
+   */
+  countRule?: number;
   addedAt: number;
   openedAt: number;
   position?: ReadingPosition;
   bookmarks: Bookmark[];
   /** 表紙の見た目を決める種（題名から作る。同じ本はいつも同じ表紙になる） */
   seed: number;
+}
+
+/**
+ * 数え方を直したあと、古い数のまま残っている本を数え直す。
+ *
+ * 文字数は取り込んだときに数えて保存してある。数え方を直しても、
+ * すでに本棚にある本はそのままなので、ここで原文から数え直して保存する。
+ * 原文（`source`）は必ず残してあるので、取り込み直さなくてよい。
+ */
+export async function recountBooks(
+  books: BookRecord[],
+  rule: number,
+  recount: (source: string) => number
+): Promise<BookRecord[]> {
+  const fixed: BookRecord[] = [];
+  for (const book of books) {
+    if (book.countRule === rule) {
+      fixed.push(book);
+      continue;
+    }
+    const next = { ...book, chars: recount(book.source), countRule: rule };
+    fixed.push(next);
+    try {
+      await saveBook(next);
+    } catch {
+      // 保存できなくても、画面には正しい数を出す（次回また数え直す）
+    }
+  }
+  return fixed;
 }
 
 export async function listBooks(): Promise<BookRecord[]> {
