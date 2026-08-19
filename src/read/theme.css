@@ -682,6 +682,10 @@ select {
 .state-list dt {
   color: var(--ink-2);
 }
+.state-note {
+  margin: 4px 0 0;
+  line-height: 1.7;
+}
 .state-list dd {
   margin: 0;
   font-family: var(--mono);
