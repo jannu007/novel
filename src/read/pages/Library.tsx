@@ -21,9 +21,11 @@ import { useInstallPrompt } from '../../lib/useInstallPrompt';
 import {
   clearLibrary,
   deleteBook,
+  keepStorage,
   listBooks,
   recountBooks,
   saveBook,
+  storageInfo,
   type BookRecord,
 } from '../db';
 import { clearCovers, deleteCover } from '../cover';
@@ -85,6 +87,14 @@ export default function Library() {
   }, [recount]);
 
   useEffect(() => {
+    /*
+     * 本棚を消さないようブラウザに頼んでおく。
+     * 既定では「空きが足りなくなったら捨ててよい」扱いのままで、
+     * 端末の判断で本棚がまるごと空になることがある。
+     * 断られても実害はないので、開くたびに静かに頼む。
+     */
+    keepStorage();
+
     // はじめて開いたときだけ「使い方の本」を入れておく
     (async () => {
       const existing = await listBooks();
@@ -372,6 +382,18 @@ export default function Library() {
             <span>端末の中だけで読み取ります。どこにも送信しません。</span>
           </label>
 
+        </>
+      )}
+
+      {/*
+        画面の下の並びと版の表示は、本棚が空のときも必ず出す。
+
+        以前は本が1冊もあるときにしか出していなかったので、本棚が空だと
+        「保存データ」にたどり着けず、動いている版も確かめられなかった。
+        本が消えて空になったときこそ、この2つがいちばん必要になる。
+      */}
+      {books !== null && (
+        <>
           <div className="lib-foot">
             <button className="btn btn-ghost" onClick={() => setSheet('paste')}>
               <PasteIcon />
@@ -391,7 +413,7 @@ export default function Library() {
             </button>
           </div>
           {/* いま動いている版。古い版が残っていないかを、開かずに確かめられる。 */}
-          <p className="lib-version">版 {__BUILD_ID__}</p>
+          <p className="lib-version">版 {BUILD_ID}</p>
         </>
       )}
 
@@ -802,10 +824,12 @@ export default function Library() {
  */
 function AppState() {
   const [sw, setSw] = useState('確かめています…');
+  const [store, setStore] = useState<{ kept: boolean; used: string } | null>(null);
   const [standalone] = useState(isStandalone);
 
   useEffect(() => {
     serviceWorkerState().then(setSw);
+    storageInfo().then(setStore);
   }, []);
 
   return (
@@ -819,9 +843,25 @@ function AppState() {
         <dd>{sw}</dd>
       </div>
       <div>
+        <dt>本棚の保護</dt>
+        <dd>{store ? (store.kept ? '有効（消えません）' : '未設定') : '確かめています…'}</dd>
+      </div>
+      <div>
+        <dt>使っている容量</dt>
+        <dd>{store ? store.used : '—'}</dd>
+      </div>
+      <div>
         <dt>開き方</dt>
         <dd>{standalone ? 'アプリとして起動中' : 'ブラウザで表示中'}</dd>
       </div>
+      {store && !store.kept && (
+        <p className="muted small state-note">
+          「本棚の保護」が未設定のあいだは、端末の空きが少なくなったときなどに、
+          ブラウザの判断で本棚が空になることがあります。
+          <strong>アプリとして入れて</strong>おくと有効になりやすくなります。
+          大事な原稿は、元の <code>.md</code> ファイルも手元に残しておいてください。
+        </p>
+      )}
     </dl>
   );
 }

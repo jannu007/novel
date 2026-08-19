@@ -121,6 +121,49 @@ export async function clearLibrary(): Promise<void> {
   );
 }
 
+/**
+ * 本棚を「消さないで」とブラウザに頼む。
+ *
+ * ブラウザの保存領域は、既定では**いつ消されてもよい扱い**になっている。
+ * 端末の空きが減ったときや、しばらく開いていないときに、ブラウザの判断で
+ * まるごと捨てられることがある（本棚が空になる）。
+ * この宣言をしておくと、その対象から外れる。
+ *
+ * 許可が下りるかはブラウザ次第で、ホーム画面に入れてある・よく開いている
+ * といった条件で自動的に通ることが多い。断られても実害はないので、
+ * 開くたびに静かに頼んでおく。
+ */
+export async function keepStorage(): Promise<boolean> {
+  try {
+    if (!navigator.storage?.persist) return false;
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
+}
+
+/** 保存の状態（「保存データ」に出す）。 */
+export async function storageInfo(): Promise<{ kept: boolean; used: string }> {
+  let kept = false;
+  let used = '不明';
+  try {
+    kept = (await navigator.storage?.persisted?.()) ?? false;
+  } catch {
+    /* 分からなければ「未設定」として扱う */
+  }
+  try {
+    const estimate = await navigator.storage?.estimate?.();
+    if (estimate?.usage !== undefined) {
+      const mb = estimate.usage / 1024 / 1024;
+      used = mb < 1 ? `${Math.round(estimate.usage / 1024)} KB` : `${mb.toFixed(1)} MB`;
+    }
+  } catch {
+    /* 同上 */
+  }
+  return { kept, used };
+}
+
 /** 題名から表紙の種を作る（同じ題名なら必ず同じ表紙になる）。 */
 export function seedOf(text: string): number {
   let h = 2166136261;
