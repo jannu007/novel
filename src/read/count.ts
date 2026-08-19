@@ -7,26 +7,38 @@
  *   ・空白と改行を数えるか
  * で答えが違うため、どれか1つだけを黙って出すと「実際と合わない」ことになる。
  *
- * そこでこのモジュールは3通りを同時に返し、画面ではその内訳を見せる。
- * 本棚に大きく出すのは `body`（実際に読む文字の数）。
+ * そこでこのモジュールは4通りを同時に返し、画面ではその内訳を見せる。
+ * 本棚に大きく出すのは `body`。
  *
- *   body     … 本文。ページに出る文字だけを数える。
- *              Markdownの記号・ルビの読み・空白・改行は数えない。
- *              市販の本で「約◯万字」と言うときの数え方に最も近い。
- *   withRuby … body に、ルビの読みを足したもの。
- *   raw      … 取り込んだファイルそのままの長さ（記号も改行も全部）。
- *              文章を書いた道具（エディタ）が出す数はたいていこれ。
+ *   body         … 地の文だけ。見出し（章題）も、Markdownの記号も、
+ *                  ルビの読みも、空白・改行も数えない。
+ *                  **同じリポジトリの執筆アプリ（文机・製本所）と同じ数え方**で、
+ *                  書いているときに見ていた数とそのまま突き合わせられる。
+ *   withHeadings … body に、見出し（章題）の文字を足したもの。
+ *   withRuby     … さらに、ルビの読みを足したもの。
+ *   raw          … 取り込んだファイルそのままの長さ（記号も改行も全部）。
+ *                  文章を書く道具（エディタ）が出す数はたいていこれ。
  */
 
 import type { Block, Inline } from './markdown';
 
 export interface BookCounts {
-  /** 本文（記号・ルビの読み・空白を除く） */
+  /** 地の文だけ（見出し・記号・ルビの読み・空白を除く）。執筆アプリと同じ数え方。 */
   body: number;
-  /** 本文＋ルビの読み */
+  /** 地の文＋見出し（章題） */
+  withHeadings: number;
+  /** さらにルビの読みを足したもの */
   withRuby: number;
   /** 原文そのまま（Markdownの記号・改行を含む） */
   raw: number;
+}
+
+/** 何を数に入れるか。 */
+export interface CountOptions {
+  /** 見出し（章題）を数えるか。執筆アプリは数えないので、既定は false。 */
+  headings?: boolean;
+  /** ルビの読みを数えるか。読みは分量ではないので、既定は false。 */
+  ruby?: boolean;
 }
 
 /**
@@ -65,26 +77,27 @@ function inlineChars(nodes: Inline[], withRuby: boolean): number {
 }
 
 /** ひとかたまり（段落・見出しなど）の文字数。 */
-export function blockChars(block: Block, withRuby = false): number {
+export function blockChars(block: Block, opts: CountOptions = {}): number {
+  const ruby = opts.ruby ?? false;
   switch (block.type) {
     case 'paragraph':
-      return inlineChars(block.children, withRuby);
+      return inlineChars(block.children, ruby);
     case 'heading':
-      return visibleLength(block.plain);
+      return opts.headings ? visibleLength(block.plain) : 0;
     case 'code':
       return visibleLength(block.code);
     case 'quote':
-      return block.children.reduce((n, b) => n + blockChars(b, withRuby), 0);
+      return block.children.reduce((n, b) => n + blockChars(b, opts), 0);
     case 'list':
       return block.items.reduce(
-        (n, item) => n + item.reduce((m, b) => m + blockChars(b, withRuby), 0),
+        (n, item) => n + item.reduce((m, b) => m + blockChars(b, opts), 0),
         0
       );
     case 'table':
       return (
-        block.head.reduce((n, cell) => n + inlineChars(cell, withRuby), 0) +
+        block.head.reduce((n, cell) => n + inlineChars(cell, ruby), 0) +
         block.rows.reduce(
-          (n, row) => n + row.reduce((m, cell) => m + inlineChars(cell, withRuby), 0),
+          (n, row) => n + row.reduce((m, cell) => m + inlineChars(cell, ruby), 0),
           0
         )
       );
@@ -95,12 +108,12 @@ export function blockChars(block: Block, withRuby = false): number {
 }
 
 /** ひとまとまりの本文の文字数。 */
-export function countBlocks(blocks: Block[], withRuby = false): number {
-  return blocks.reduce((n, b) => n + blockChars(b, withRuby), 0);
+export function countBlocks(blocks: Block[], opts: CountOptions = {}): number {
+  return blocks.reduce((n, b) => n + blockChars(b, opts), 0);
 }
 
 /**
  * 数え方を変えたときに、本棚にある本の数を数え直すための目印。
  * 保存してある本の `countRule` がこれと違えば、その本は数え直す。
  */
-export const COUNT_RULE = 2;
+export const COUNT_RULE = 3;
