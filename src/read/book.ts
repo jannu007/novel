@@ -181,8 +181,8 @@ export function buildBook(source: string, fallbackTitle: string): BookContent {
     chapters: split,
     toc,
     /*
-     * 本文からは外した題名の見出しも数に入れる（扉のページに出るため）。
-     * こうしておくと、本棚に出す数と `countBook` の内訳がぴったり一致する。
+     * 章の分け方や題名の扱いで数が動かないよう、解析した全体から数える。
+     * 本棚に出す数と `countBook` の「地の文」がぴったり一致する。
      */
     chars: countBlocks(parsed),
     chapterOfId: remap,
@@ -190,7 +190,7 @@ export function buildBook(source: string, fallbackTitle: string): BookContent {
 }
 
 /**
- * 原稿ひとつぶんの文字数を、3通りまとめて数える。
+ * 原稿ひとつぶんの文字数を、4通りまとめて数える。
  *
  * 章の分け方や題名の扱いといった「見せ方の都合」で数が動かないよう、
  * 本の組み立てとは切り離して、原稿から直接数える。
@@ -199,8 +199,9 @@ export function countBook(source: string): BookCounts {
   const { body } = splitFrontMatter(source);
   const blocks = parseMarkdown(body);
   return {
-    body: countBlocks(blocks, false),
-    withRuby: countBlocks(blocks, true),
+    body: countBlocks(blocks),
+    withHeadings: countBlocks(blocks, { headings: true }),
+    withRuby: countBlocks(blocks, { headings: true, ruby: true }),
     raw: source.length,
   };
 }

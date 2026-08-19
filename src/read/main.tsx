@@ -5,12 +5,40 @@ import './theme.css';
 import App from './App';
 import { initSettings } from './settings';
 import { lockdown } from './lockdown';
+import { registerServiceWorker } from './sw-client';
 
-// 何より先に、外へ送る道具を取り上げる（CSPが効かない場所への備え）
-lockdown();
+/*
+ * ■ 並び順が大事なところ
+ *
+ * サービスワーカーの登録を、いちばん先に行う。
+ *
+ * ここから下の処理のどれか1つでも例外を投げると、モジュールはそこで
+ * 止まる。以前はサービスワーカーの登録を最後に置いていたため、
+ * 手前の処理がその端末でたまたま失敗すると、登録まで届かなかった。
+ * 登録されないとブラウザはこれをアプリと見なさなくなり、
+ * **インストールできなくなる**（オフライン起動もできなくなる）。
+ *
+ * 登録は本文の表示に何も依存しないので、先に済ませてしまう。
+ */
+registerServiceWorker();
+
+/*
+ * 外へ送る道具を取り上げる（CSPが効かない場所への備え）。
+ * ここが失敗しても画面は開けるようにする。通信の禁止はCSP側にもあり、
+ * この二重の備えのために本が読めなくなるのは本末転倒なため。
+ */
+try {
+  lockdown();
+} catch {
+  /* CSPの禁止に任せる */
+}
 
 // 最初の描画の前に配色を決めておき、明→暗のちらつきを避ける
-initSettings();
+try {
+  initSettings();
+} catch {
+  /* 端末の保存が使えないときは既定の配色で開く */
+}
 
 /*
  * 他所のページの中に埋め込まれた状態では動かさない。
@@ -22,55 +50,26 @@ initSettings();
  * 本来はサーバー側の frame-ancestors で止める指定だが、
  * 配信元（GitHub Pages）では応答ヘッダを足せないため、ここで止める。
  */
-if (window.top !== window.self) {
-  const root = document.getElementById('root');
-  if (root) {
-    root.className = 'framed-stop';
-    root.textContent =
-      '栞は、ほかのページに埋め込まれた状態では開けません。栞のアプリとして開いてください。';
+function framed(): boolean {
+  try {
+    return window.top !== window.self;
+  } catch {
+    // 見に行けない＝別の生成元の枠の中にいる
+    return true;
   }
-  throw new Error('framed');
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
-  </StrictMode>
-);
-
-/*
- * オフラインでも本棚を開けるようにする（読み込み済みのものだけを使う）。
- *
- * あわせて「新しい版が出ていたら、次に開いたときには必ずそれになっている」
- * ようにしている。オフライン用の保存が古い版を抱えたままになると、
- * 直したはずの不具合がいつまでも直らないように見えてしまうため。
- */
-if ('serviceWorker' in navigator) {
-  // 登録前から動いていたかを覚えておく（初回の登録では読み込み直さないため）
-  const hadController = Boolean(navigator.serviceWorker.controller);
-  let reloading = false;
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || reloading) return;
-    reloading = true;
-    window.location.reload();
-  });
-
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('./sw.js')
-      .then((registration) => {
-        // 画面に戻ってきたとき・1時間ごとに、新しい版が出ていないか確かめる
-        const check = () => registration.update().catch(() => {});
-        document.addEventListener('visibilitychange', () => {
-          if (!document.hidden) check();
-        });
-        setInterval(check, 60 * 60 * 1000);
-      })
-      .catch(() => {
-        /* オフライン対応はベストエフォート */
-      });
-  });
+const root = document.getElementById('root');
+if (root && framed()) {
+  root.className = 'framed-stop';
+  root.textContent =
+    '栞は、ほかのページに埋め込まれた状態では開けません。栞のアプリとして開いてください。';
+} else if (root) {
+  createRoot(root).render(
+    <StrictMode>
+      <HashRouter>
+        <App />
+      </HashRouter>
+    </StrictMode>
+  );
 }

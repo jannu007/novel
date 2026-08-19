@@ -8,12 +8,24 @@
  *   （端末のファイル選択に「ファイル」が出てこないときの入り口になる）
  */
 
-const CACHE_NAME = 'shiori-v5';
+const CACHE_NAME = 'shiori-v6';
 /** 共有で受け取ったファイルを、アプリが拾うまで一時的に置いておく場所。 */
 const SHARE_CACHE = 'shiori-share';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
+});
+
+/*
+ * 画面側からの「すぐ交代して」の指示。
+ *
+ * skipWaiting() は install のときにも呼んでいるが、それだけでは
+ * 交代できないことがある（すでに動いている版がいる場合など）。
+ * 画面側が新しい版を見つけたときにも、ここで念のため交代させる。
+ * これが効かないと、直したはずのものが何日も古いままになる。
+ */
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -92,8 +104,24 @@ self.addEventListener('fetch', (event) => {
    */
   if (url.pathname.endsWith('.webmanifest')) return;
 
+  /*
+   * 画面そのもの（index.html）は、ブラウザの控えを飛ばして取り立てを使う。
+   *
+   * 配信元は「10分は控えを使ってよい」と言ってくるので、そのままだと
+   * 新しい版を出しても、しばらく古い画面が返る。画面が古いと、そこから
+   * 読み込むJavaScriptも古いままになり、直したはずのものが直らない。
+   * 中身のファイル（assets/…）は名前に版が入っているので、そのままでよい。
+   */
+  const bypassCache = request.mode === 'navigate' || url.pathname.endsWith('.html');
+  // 画面の要求（navigate）はそのまま作り直せないので、URLから取り直す
+  const fresh = bypassCache
+    ? fetch(request.url, { cache: 'reload', credentials: 'same-origin' }).catch(() =>
+        fetch(request)
+      )
+    : fetch(request);
+
   event.respondWith(
-    fetch(request)
+    fresh
       .then((response) => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));

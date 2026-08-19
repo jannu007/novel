@@ -30,6 +30,7 @@ import { clearCovers, deleteCover } from '../cover';
 import { downloadSource, makeBook, readBookFiles, takeSharedFiles } from '../import';
 import { countBook, readingMinutes } from '../book';
 import { COUNT_RULE } from '../count';
+import { BUILD_ID, serviceWorkerState } from '../sw-client';
 import { SAMPLE_BOOK, SAMPLE_FILE_NAME } from '../sample';
 import {
   chromeIntentUrl,
@@ -497,13 +498,18 @@ export default function Library() {
         <p className="muted">
           元のファイルは各本の保存ボタンからいつでも取り出せます。
         </p>
-        <p className="muted small">版：{__BUILD_ID__}</p>
+        {/*
+          いま何が動いているかを、その場で確かめられるようにする。
+          「直したはずのものが直らない」「インストールできない」の多くは、
+          古い版が端末に残っていることが原因なので、まずここを見てもらう。
+        */}
+        <AppState />
         <p>
-          直したはずのものが直っていないときは、古い版が端末に残っていることがあります。
-          下のボタンで、アプリの控えを捨てて最新の版を取り直せます
-          （本棚の中身はそのまま残ります）。
+          直したはずのものが直っていないときや、インストールの案内が出ないときは、
+          古い版が端末に残っていることがあります。下のボタンで、アプリの控えを捨てて
+          最新の版を取り直せます（本棚の中身はそのまま残ります）。
         </p>
-        <button className="btn" onClick={() => refreshApp()}>
+        <button className="btn btn-primary" onClick={() => refreshApp()}>
           最新の版にする
         </button>
         <button
@@ -786,6 +792,41 @@ export default function Library() {
 }
 
 /**
+ * いまのアプリの状態。
+ *
+ * 「直したはずのものが直らない」「インストールできない」は、どちらも
+ * 古い版が端末に残っていることが原因のことが多い。原因を推し量らずに
+ * 済むよう、動いている版とサービスワーカーの状態をそのまま見せる。
+ * サービスワーカーが未登録だと、ブラウザはこれをアプリと見なさないので
+ * インストールもできない——という結びつきも、ここで分かるようにする。
+ */
+function AppState() {
+  const [sw, setSw] = useState('確かめています…');
+  const [standalone] = useState(isStandalone);
+
+  useEffect(() => {
+    serviceWorkerState().then(setSw);
+  }, []);
+
+  return (
+    <dl className="state-list">
+      <div>
+        <dt>いま動いている版</dt>
+        <dd>{BUILD_ID}</dd>
+      </div>
+      <div>
+        <dt>オフライン対応</dt>
+        <dd>{sw}</dd>
+      </div>
+      <div>
+        <dt>開き方</dt>
+        <dd>{standalone ? 'アプリとして起動中' : 'ブラウザで表示中'}</dd>
+      </div>
+    </dl>
+  );
+}
+
+/**
  * 文字数の内訳。
  *
  * 「文字数」は数え方で1割ちかく変わる。本棚に出しているのは本文の数なので、
@@ -801,14 +842,14 @@ function CountSheet({ book, onClose }: { book: BookRecord | null; onClose: () =>
       {book && counts && (
         <>
           <p className="sheet-note">
-            「{book.title}」を、3通りの数え方で数えた結果です。
-            本棚に出しているのは<strong>本文</strong>の数です。
+            「{book.title}」を、4通りの数え方で数えた結果です。
+            本棚に出しているのは<strong>地の文</strong>の数です。
           </p>
           <dl className="count-list">
             <div>
               <dt>
-                本文
-                <span className="muted small">ページに出る文字だけ</span>
+                地の文
+                <span className="muted small">執筆アプリ（文机・製本所）と同じ数え方</span>
               </dt>
               <dd>
                 <strong>{counts.body.toLocaleString()}</strong>字
@@ -816,7 +857,14 @@ function CountSheet({ book, onClose }: { book: BookRecord | null; onClose: () =>
             </div>
             <div>
               <dt>
-                ルビの読みを含む
+                ＋ 見出し
+                <span className="muted small">章題の文字も数える</span>
+              </dt>
+              <dd>{counts.withHeadings.toLocaleString()}字</dd>
+            </div>
+            <div>
+              <dt>
+                ＋ ルビの読み
                 <span className="muted small">｜漢字《かんじ》の「かんじ」も数える</span>
               </dt>
               <dd>{counts.withRuby.toLocaleString()}字</dd>
@@ -830,10 +878,12 @@ function CountSheet({ book, onClose }: { book: BookRecord | null; onClose: () =>
             </div>
           </dl>
           <p className="muted small">
-            本文は、Markdownの記号（<code>#</code> や <code>｜</code>《》）・ルビの読み・
-            空白・改行を除いた数です。市販の本で「約◯万字」というときの数え方に近く、
+            <strong>地の文</strong>は、見出し・Markdownの記号（<code>#</code> や
+            <code>｜</code>《》）・ルビの読み・空白・改行を除いた数です。
+            書いているときに見ていた数（文机・小説執筆スタジオの「◯字」）と
+            <strong>同じ数え方</strong>なので、そのまま突き合わせられます。
             読む時間の目安（約{readingMinutes(counts.body)}分）もこの数から出しています。
-            文章を書く道具が出す数は、たいてい「原文そのまま」に近くなります。
+            エディタが出す数は、たいてい「原文そのまま」に近くなります。
           </p>
         </>
       )}
