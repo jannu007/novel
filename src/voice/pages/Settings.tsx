@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   clearLibrary,
   deleteBook,
+  isEphemeral,
   listBooks,
   storageInfo,
   type VoiceBook,
@@ -57,9 +58,17 @@ export default function Settings() {
   const [books, setBooks] = useState<VoiceBook[]>([]);
   const [storage, setStorage] = useState({ kept: false, used: '調べています' });
   const [worker, setWorker] = useState('調べています');
+  /** 端末に何も残さない状態で動いているか（1ファイル版など） */
+  const [ephemeral, setEphemeral] = useState(false);
 
   useEffect(() => {
-    listBooks().then(setBooks).catch(() => setBooks([]));
+    listBooks()
+      .then((found) => {
+        setBooks(found);
+        // 保存が使えるかは、実際に読んでみて初めて分かる
+        setEphemeral(isEphemeral());
+      })
+      .catch(() => setBooks([]));
     storageInfo().then(setStorage);
     serviceWorkerState().then(setWorker);
   }, []);
@@ -309,6 +318,20 @@ export default function Settings() {
           広告も、利用状況の記録もありません。
         </p>
         <p className="note" style={{ marginTop: 10 }}>
+          <b>さらに徹底したいときは「ひとり版」を。</b>
+          語り部ぜんぶが入った<b>HTMLファイル1つ</b>です。手元に保存して開けば、
+          読み込みのための接続も起きず、同じ置き場に別のアプリが同居することも
+          ありません。中身を1文字でも書き換えると動かなくなります
+          （差し替えの細工を防ぐため、コードのハッシュをCSPに書いてあります）。
+          そのかわり書棚は残らず、聴くたびにファイルを選び直します。
+        </p>
+        <p className="note" style={{ marginTop: 8 }}>
+          <a href="./kataribe-standalone.html" download="語り部.html">
+            ひとり版を保存する（HTMLファイル1つ）
+          </a>
+        </p>
+
+        <p className="note" style={{ marginTop: 10 }}>
           なお、<b>スピーカーから出た音</b>は誰でも録音できます。ソフトウェアで
           防げるのは端末から先へ文字が渡ることまでで、聞こえている音そのものは
           守れません。人のいる場所ではイヤホンをお使いください。
@@ -318,9 +341,23 @@ export default function Settings() {
       {/* ---- 保存データ ---- */}
       <section className="card section">
         <h2>保存データ</h2>
+        {ephemeral && (
+          <div className="banner good" style={{ marginTop: 0 }}>
+            <b>端末には何も残していません。</b>
+            この画面を閉じると、取り込んだ本は消えます（保存する場所が無いためです）。
+            聴くたびにファイルを選び直すことになりますが、
+            端末を後から調べられても本の中身は出てきません。
+          </div>
+        )}
+
         <div className="row">
           <label>
-            書棚の本<span className="sub">この端末の中だけにあります</span>
+            書棚の本
+            <span className="sub">
+              {ephemeral
+                ? 'この画面を閉じるまでのあいだだけ'
+                : 'この端末の中だけにあります'}
+            </span>
           </label>
           <span>{books.length}冊</span>
         </div>

@@ -45,6 +45,17 @@ export default defineConfig({
     ),
   },
   build: {
+    /*
+     * モジュールの先読み（modulepreload）の補助コードを入れない。
+     *
+     * これは、その機能を持たない古いブラウザのために、先読みの指示を
+     * fetch で肩代わりするもの。読みに行く先は自分のJavaScriptだけで、
+     * 本文が渡ることはない。それでも、配信するものの中に「外へ送れる道具」が
+     * 1つも無い状態を保つほうが、確かめやすく、説明もしやすい。
+     * 外しても、先読みが効かないぶんの読み込みが少し遅くなるだけで、
+     * どのブラウザでも動きは変わらない。
+     */
+    modulePreload: { polyfill: false },
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),

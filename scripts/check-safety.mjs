@@ -9,7 +9,7 @@
  * 確かめるのは「書いたつもり」ではなく、実際に配信される dist/ の中身。
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DIST = 'dist';
@@ -20,12 +20,37 @@ function fail(message) {
 }
 
 /**
- * 同じ決まりを守らせるアプリ。
- * どちらも「本文を端末から出さない」ことを約束しているので、同じ網をかける。
+ * HTMLから、実際に効くCSPの中身を取り出す。
+ *
+ * 以前はHTML全体を相手に「その言葉が入っているか」を見ていたので、
+ * 注釈に書いただけの説明文でも通ってしまった。metaタグから取り出す。
+ */
+function cspOf(html) {
+  const meta = /<meta[^>]*http-equiv="Content-Security-Policy"[^>]*>/i.exec(html)?.[0];
+  if (!meta) return null;
+  return /content="([^"]*)"/i.exec(meta)?.[1] ?? null;
+}
+
+/**
+ * 「本文を端末から出さない」ことを約束しているアプリ。深く確かめる。
  */
 const APPS = [
   { name: '栞', dir: 'read', src: join('src', 'read') },
   { name: '語り部', dir: 'voice', src: join('src', 'voice') },
+];
+
+/**
+ * 同じ置き場に同居しているアプリ全部。
+ *
+ * 同じサイトに置かれたページは、互いの保存領域を読める間柄になる。
+ * どれか1つでも外へ送れる口が開いていれば、そこが栞と語り部の蔵書の
+ * 抜け道になってしまう。だから執筆アプリのほうにも、
+ * 「通信の口が開いていないこと」だけは同じ強さで確かめる。
+ */
+const NEIGHBOURS = [
+  { name: '小説執筆スタジオ', dir: '', src: null, html: 'index.html' },
+  { name: '文机', dir: 'desk', src: join('src', 'desk'), html: join('desk', 'index.html') },
+  { name: '製本所', dir: 'md', src: join('src', 'md'), html: join('md', 'index.html') },
 ];
 
 /* ---- 1. 配信されるHTMLのCSP ---- */
@@ -43,7 +68,11 @@ const REQUIRED_CSP = [
 
 for (const app of APPS) {
   const html = readFileSync(join(DIST, app.dir, 'index.html'), 'utf8');
-  const csp = /content="([^"]*Content-Security[^"]*)"/.exec(html)?.[1] ?? html;
+  const csp = cspOf(html);
+  if (csp === null) {
+    fail(`${app.name}のHTMLにCSPのmetaタグが無い`);
+    continue;
+  }
   for (const rule of REQUIRED_CSP) {
     if (!csp.includes(rule)) fail(`${app.name}のCSPに ${rule} が入っていない`);
   }
@@ -176,14 +205,65 @@ const FORBIDDEN = [
   /\bimportScripts\s*\(/,
 ];
 
+/*
+ * 栞と語り部の画面に**実際に読み込まれる**JavaScriptを、1つ残らず見る。
+ *
+ * 以前は入口のファイル（read-*.js / voice-*.js）だけを見ていた。ところが
+ * 共通して使う部分は別のファイルに切り出されて配信される。そこに `fetch(` が
+ * 1つ入り込んでいて、長いあいだ見えていなかった（Viteが足す先読みの補助
+ * コードだった。今は入れない設定にしてある）。
+ *
+ * どのファイルがどの画面に読み込まれるかは組み立て方しだいで変わるので、
+ * 名前で見当をつけるのをやめ、**入口から読み込みの筋をたどって**集める。
+ *
+ * なお、書き出し用の道具（FileSaverなど）は執筆アプリだけが読み込むもので、
+ * 栞と語り部の画面には来ない。だからここには現れない。そちらは同居アプリとして
+ * CSPと原文を別に確かめている（6章）。
+ */
+
+/** そのファイルが読み込んでいる、ほかのファイルの名前。 */
+function importsOf(code) {
+  const names = new Set();
+  for (const m of code.matchAll(/from\s*["']\.\/([^"']+\.js)["']/g)) names.add(m[1]);
+  for (const m of code.matchAll(/import\s*\(\s*["']\.\/([^"']+\.js)["']/g)) names.add(m[1]);
+  return names;
+}
+
+/** HTMLの入口から、読み込みの筋をたどって集める。 */
+function reachable(appDir) {
+  const html = readFileSync(join(DIST, appDir, 'index.html'), 'utf8');
+  const seen = new Set();
+  const queue = [];
+  for (const m of html.matchAll(/(?:src|href)="[^"]*\/assets\/([^"]+\.js)"/g)) {
+    queue.push(m[1]);
+  }
+  while (queue.length > 0) {
+    const name = queue.pop();
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const path = join(DIST, 'assets', name);
+    if (!existsSync(path)) {
+      fail(`${appDir} が読み込む ${name} が見つからない`);
+      continue;
+    }
+    for (const next of importsOf(readFileSync(path, 'utf8'))) queue.push(next);
+  }
+  return seen;
+}
+
 for (const app of APPS) {
-  for (const file of bundlesOf(app)) {
+  const files = reachable(app.dir);
+  if (files.size === 0) fail(`${app.name}が読み込むスクリプトが1つも見つからない`);
+  for (const file of files) {
     const body = stripLiterals(readFileSync(join(DIST, 'assets', file), 'utf8'));
     for (const pattern of FORBIDDEN) {
-      if (pattern.test(body)) fail(`${file} に ${pattern} が含まれている`);
+      if (pattern.test(body)) fail(`${app.name}が読み込む ${file} に ${pattern} が含まれている`);
     }
   }
 }
+
+// 入口のファイルが名前ごと消えていないかも確かめる（組み立ての事故よけ）
+for (const app of APPS) bundlesOf(app);
 
 /* ---- 3. 原文（src/read・src/voice）にも同じ確認をする ---- */
 
@@ -212,6 +292,13 @@ for (const app of APPS) {
 
 /* ---- 4. 本文をHTMLとして流し込んでいないか ---- */
 
+/*
+ * ここは、たどった全部ではなく**自分たちの書いたコード**（入口のファイル）だけを見る。
+ * React そのものが `dangerouslySetInnerHTML` を実装している以上、
+ * その中身まで見に行くと必ず引っかかってしまい、検査の意味が無くなる。
+ * 確かめたいのは「語り部と栞が、本文をHTMLとして流し込んでいないか」なので、
+ * 自分たちのコードが入るファイルを見れば足りる。
+ */
 for (const app of APPS) {
   for (const file of bundlesOf(app)) {
     const code = readFileSync(join(DIST, 'assets', file), 'utf8');
@@ -263,6 +350,70 @@ for (const file of bundlesOf({ name: '語り部', dir: 'voice' })) {
   }
 }
 
+/* ---- 6. 同居しているアプリにも、通信の口が無いことを確かめる ---- */
+
+for (const app of NEIGHBOURS) {
+  const html = readFileSync(join(DIST, app.html), 'utf8');
+  const csp = cspOf(html) ?? '';
+  for (const rule of ["connect-src 'none'", "object-src 'none'", "base-uri 'none'"]) {
+    if (!csp.includes(rule)) fail(`${app.name}のCSPに ${rule} が入っていない`);
+  }
+  if (app.src) {
+    for (const path of walk(app.src)) {
+      const body = stripLiterals(readFileSync(path, 'utf8'));
+      for (const pattern of FORBIDDEN) {
+        if (pattern.test(body)) fail(`${path} に ${pattern} が含まれている`);
+      }
+    }
+  }
+}
+
+/*
+ * `src` の直下（小説執筆スタジオ本体）も見る。
+ * 各アプリの下は上で見ているので、ここでは重ねて見ない。
+ */
+const APP_DIRS = new Set(['read', 'voice', 'desk', 'md']);
+for (const path of walk('src')) {
+  if (APP_DIRS.has(path.split(/[\\/]/)[1])) continue;
+  const body = stripLiterals(readFileSync(path, 'utf8'));
+  for (const pattern of FORBIDDEN) {
+    if (pattern.test(body)) fail(`${path} に ${pattern} が含まれている`);
+  }
+}
+
+/* ---- 7. ひとり版（1ファイル）が緩んでいないか ---- */
+
+/*
+ * 1ファイル版はJavaScriptがHTMLの中に入るので、うっかり
+ * `script-src 'unsafe-inline'` にすると、差し込まれた細工まで動いてしまう。
+ * ハッシュで1つだけを許す形になっていることを確かめる。
+ */
+const STANDALONE = join(DIST, 'voice', 'kataribe-standalone.html');
+if (existsSync(STANDALONE)) {
+  const solo = readFileSync(STANDALONE, 'utf8');
+  const csp = cspOf(solo) ?? '';
+  if (!/script-src 'sha256-[A-Za-z0-9+/=]+'/.test(csp)) {
+    fail('ひとり版の script-src がハッシュになっていない');
+  }
+  if (/unsafe-inline|unsafe-eval/.test(csp.replace(/style-src[^;]*/, ''))) {
+    fail('ひとり版のCSPに unsafe-inline / unsafe-eval が入っている');
+  }
+  for (const rule of ["default-src 'none'", "connect-src 'none'", "base-uri 'none'"]) {
+    if (!csp.includes(rule)) fail(`ひとり版のCSPに ${rule} が入っていない`);
+  }
+  if (!/<html[^>]*\stranslate="no"/.test(solo)) fail('ひとり版に translate="no" が無い');
+
+  // 中の JavaScript にも、ほかと同じ網をかける
+  const inline = /<script type="module">([\s\S]*)<\/script>/.exec(solo)?.[1] ?? '';
+  const body = stripLiterals(inline);
+  for (const pattern of FORBIDDEN) {
+    if (pattern.test(body)) fail(`ひとり版に ${pattern} が含まれている`);
+  }
+  if (inline.includes('SpeechSynthesisUtterance') && !inline.includes('localService')) {
+    fail('ひとり版に、端末の中で話す声かどうかの確認が見当たらない');
+  }
+}
+
 /* ---- 結果 ---- */
 
 if (failures.length > 0) {
@@ -270,4 +421,8 @@ if (failures.length > 0) {
   for (const f of failures) console.error('  - ' + f);
   process.exit(1);
 }
-console.log('安全のしくみ: 問題なし（栞・語り部：CSP／通信の道具／HTML流し込み／読み上げの声）');
+console.log(
+  '安全のしくみ: 問題なし' +
+    '（栞・語り部：CSP／通信の道具／HTML流し込み／読み上げの声、' +
+    '同居アプリ：通信の口、ひとり版：ハッシュ固定）'
+);

@@ -4,6 +4,16 @@
  * 取り込んだ本は、この端末のブラウザの中（IndexedDB）だけに保存される。
  * サーバーへ送る処理はアプリのどこにも無く、通信そのものを行わない。
  * 同じリポジトリの他のアプリとは別のデータベースなので、混ざることもない。
+ *
+ * ■ 保存できない場所でも動く
+ *
+ * 1ファイル版（`file://` で開くもの）では、ブラウザが IndexedDB を
+ * 使わせてくれない。保存する先が無いからといって朗読できないのでは困るので、
+ * その場合は**画面を閉じるまでのあいだ、記憶の中だけ**に置く。
+ *
+ * これは劣化ではなく、いちばん安全な状態でもある。端末に何も残らないので、
+ * 端末を後から調べられても本の中身は出てこない。どちらで動いているかは
+ * `isEphemeral()` で分かり、設定画面に出している。
  */
 
 import { get, set, del, keys, createStore } from 'idb-keyval';
@@ -12,6 +22,29 @@ const store = createStore('kataribe', 'books');
 
 const BOOK_PREFIX = 'book:';
 const bookKey = (id: string) => `${BOOK_PREFIX}${id}`;
+
+/** 保存が使えないと分かったあとの置き場（画面を閉じると消える）。 */
+const memory = new Map<string, VoiceBook>();
+let ephemeral = false;
+
+/** いま「端末に何も残さない」状態で動いているか。 */
+export function isEphemeral(): boolean {
+  return ephemeral;
+}
+
+/**
+ * IndexedDB を試し、使えなければ記憶の中で済ませる。
+ * 一度でも断られたら、以後は試さない（毎回の失敗で待たされないように）。
+ */
+async function withStore<T>(run: () => Promise<T>, fallback: () => T): Promise<T> {
+  if (ephemeral) return fallback();
+  try {
+    return await run();
+  } catch {
+    ephemeral = true;
+    return fallback();
+  }
+}
 
 /** どこまで聴いたか。文の番号で覚える。 */
 export interface ListeningPosition {
@@ -38,35 +71,57 @@ export interface VoiceBook {
 }
 
 export async function listBooks(): Promise<VoiceBook[]> {
-  const allKeys = await keys(store);
-  const bookKeys = allKeys.filter(
-    (k): k is string => typeof k === 'string' && k.startsWith(BOOK_PREFIX)
+  const sort = (books: VoiceBook[]) => books.sort((a, b) => b.openedAt - a.openedAt);
+  return withStore(
+    async () => {
+      const allKeys = await keys(store);
+      const bookKeys = allKeys.filter(
+        (k): k is string => typeof k === 'string' && k.startsWith(BOOK_PREFIX)
+      );
+      const books = await Promise.all(bookKeys.map((k) => get<VoiceBook>(k, store)));
+      return sort(books.filter((b): b is VoiceBook => Boolean(b)));
+    },
+    () => sort([...memory.values()])
   );
-  const books = await Promise.all(bookKeys.map((k) => get<VoiceBook>(k, store)));
-  return books
-    .filter((b): b is VoiceBook => Boolean(b))
-    .sort((a, b) => b.openedAt - a.openedAt);
 }
 
 export async function loadBook(id: string): Promise<VoiceBook | undefined> {
-  return await get<VoiceBook>(bookKey(id), store);
+  return withStore(
+    () => get<VoiceBook>(bookKey(id), store),
+    () => memory.get(id)
+  );
 }
 
 export async function saveBook(book: VoiceBook): Promise<void> {
-  await set(bookKey(book.id), book, store);
+  // 記憶の中にも必ず置く。保存が途中で使えなくなっても、聴いている本は見失わない。
+  memory.set(book.id, book);
+  await withStore(
+    () => set(bookKey(book.id), book, store),
+    () => undefined
+  );
 }
 
 export async function deleteBook(id: string): Promise<void> {
-  await del(bookKey(id), store);
+  memory.delete(id);
+  await withStore(
+    () => del(bookKey(id), store),
+    () => undefined
+  );
 }
 
 /** 書棚をまるごと空にする。 */
 export async function clearLibrary(): Promise<void> {
-  const allKeys = await keys(store);
-  await Promise.all(
-    allKeys
-      .filter((k): k is string => typeof k === 'string' && k.startsWith(BOOK_PREFIX))
-      .map((k) => del(k, store))
+  memory.clear();
+  await withStore(
+    async () => {
+      const allKeys = await keys(store);
+      await Promise.all(
+        allKeys
+          .filter((k): k is string => typeof k === 'string' && k.startsWith(BOOK_PREFIX))
+          .map((k) => del(k, store))
+      );
+    },
+    () => undefined
   );
 }
 
