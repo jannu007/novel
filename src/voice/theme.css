@@ -1,0 +1,586 @@
+/*
+ * 「語り部」の見た目。
+ *
+ * 色はすべてここに置き、`data-palette` の付け替えだけで切り替える。
+ * 外部のフォントも画像も読み込まない（読み込めばそれが通信になる）。
+ */
+
+:root {
+  --bg: #f6f3ec;
+  --panel: #fffdf8;
+  --ink: #2b2620;
+  --dim: #6d665c;
+  --line: #e0d8c9;
+  --accent: #7a4a86;
+  --accent-ink: #ffffff;
+  --glow: #efe3f3;
+  --danger: #a8392f;
+  --ok: #2f6b4a;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(43, 38, 32, 0.06), 0 8px 24px rgba(43, 38, 32, 0.07);
+
+  color-scheme: light;
+}
+
+:root[data-palette='sepia'] {
+  --bg: #efe4cf;
+  --panel: #f8efdd;
+  --ink: #4a3a26;
+  --dim: #7d6a4e;
+  --line: #ddcaa8;
+  --glow: #e8d8bd;
+}
+
+:root[data-palette='night'] {
+  --bg: #14151a;
+  --panel: #1d1f26;
+  --ink: #e6e3dc;
+  --dim: #9b968c;
+  --line: #303442;
+  --accent: #b48ec6;
+  --accent-ink: #17131a;
+  --glow: #2b2436;
+  --danger: #e0796c;
+  --ok: #77c79b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-palette]) {
+    --bg: #14151a;
+    --panel: #1d1f26;
+    --ink: #e6e3dc;
+    --dim: #9b968c;
+    --line: #303442;
+    --accent: #b48ec6;
+    --accent-ink: #17131a;
+    --glow: #2b2436;
+    --danger: #e0796c;
+    --ok: #77c79b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
+    'Yu Gothic', Meiryo, system-ui, sans-serif;
+  line-height: 1.7;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100%;
+}
+
+.framed-stop {
+  padding: 32px;
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---- 共通の部品 ---- */
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 0 10px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+
+.bar h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.icon-btn:active {
+  transform: translateY(1px);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  font-size: 15px;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.btn.danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.note {
+  margin: 0;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+/* ---- 書棚 ---- */
+
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.book {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.book-cover {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  display: flex;
+  flex-direction: column;
+  /* 題名は下に置く。上半分は「声の弧」の場所として空けておく */
+  justify-content: flex-end;
+  padding: 14px;
+  color: #fff;
+  overflow: hidden;
+}
+
+.book-cover .cover-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+.book-cover .cover-author {
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.book-meta {
+  padding: 10px 12px 12px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.book-meta .book-title {
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin-bottom: 4px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.progress {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.progress > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.empty {
+  margin-top: 40px;
+  padding: 28px 22px;
+  text-align: center;
+}
+
+.empty h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.drop {
+  margin-top: 16px;
+  padding: 22px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.drop.over {
+  border-color: var(--accent);
+  background: var(--glow);
+}
+
+/* ---- 朗読の画面 ---- */
+
+.stage {
+  padding: 16px 0 200px;
+}
+
+.line {
+  display: block;
+  width: 100%;
+  margin: 0 0 2px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  color: var(--dim);
+  line-height: 1.95;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.line.heading {
+  margin-top: 20px;
+  font-weight: 700;
+  font-size: 1.12em;
+  color: var(--ink);
+}
+
+.line.now {
+  background: var(--glow);
+  color: var(--ink);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.line.done {
+  color: color-mix(in srgb, var(--dim) 65%, transparent);
+}
+
+.deck {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+}
+
+.deck-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.deck-scrub {
+  width: 100%;
+  margin: 0 0 4px;
+}
+
+.deck-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+
+.deck-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.round {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg);
+  font-size: 13px;
+}
+
+.round.big {
+  width: 62px;
+  height: 62px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.round:disabled {
+  opacity: 0.4;
+}
+
+/* ---- 設定・お知らせ ---- */
+
+.section {
+  margin-top: 20px;
+  padding: 16px;
+}
+
+.section h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.row:first-of-type {
+  border-top: 0;
+}
+
+.row label {
+  flex: 1;
+  min-width: 0;
+}
+
+.row .sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.row input[type='range'] {
+  flex: 0 0 46%;
+}
+
+select,
+input[type='range'] {
+  font: inherit;
+  max-width: 100%;
+  accent-color: var(--accent);
+}
+
+select {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.switch {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  position: relative;
+}
+
+.switch[aria-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.switch > i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--panel);
+  transition: transform 0.16s ease;
+}
+
+.switch[aria-checked='true'] > i {
+  transform: translateX(22px);
+}
+
+.banner {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.8;
+  border: 1px solid;
+}
+
+.banner.warn {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel));
+}
+
+.banner.good {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--line));
+  background: color-mix(in srgb, var(--ok) 8%, var(--panel));
+}
+
+.chapters {
+  max-height: 46vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chapter-item {
+  display: block;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+}
+
+.chapter-item.now {
+  background: var(--glow);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ---- アプリとして入れる案内 ---- */
+
+.install-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 14px 16px;
+}
+
+.install-text {
+  flex: 1;
+  min-width: 200px;
+  font-size: 14px;
+}
+
+.install-text .sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--dim);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.install-steps {
+  margin: 10px 0 0;
+  padding-left: 1.3em;
+  color: var(--dim);
+  font-size: 12.5px;
+  line-height: 1.9;
+}
+
+.install-actions {
+  display: flex;
+  gap: 8px;
+}

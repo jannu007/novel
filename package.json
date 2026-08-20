@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/check-shiori-safety.mjs",
+    "build": "tsc -b && vite build && npm run build:standalone && node scripts/check-safety.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
-    "check:safety": "node scripts/check-shiori-safety.mjs"
+    "check:safety": "node scripts/check-safety.mjs",
+    "build:standalone": "vite build --config vite.standalone.config.ts && node scripts/make-standalone.mjs"
   },
   "dependencies": {
     "docx": "^9.7.1",
