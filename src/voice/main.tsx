@@ -6,6 +6,7 @@ import App from './App';
 import { initSettings } from './settings';
 import { lockdown } from './lockdown';
 import { registerServiceWorker } from './sw-client';
+import { watchInstall } from './install';
 
 /*
  * ■ 並び順が大事なところ
@@ -16,6 +17,16 @@ import { registerServiceWorker } from './sw-client';
  * インストールできなくなる（オフライン起動もできなくなる）。
  */
 registerServiceWorker();
+
+/*
+ * 「アプリとして入れられます」の知らせは、画面を組み立てるより前に届くことがある。
+ * 一度きりなので、ここで受け止めておく（受け止めないと案内を出せない）。
+ */
+try {
+  watchInstall();
+} catch {
+  /* 受け止められなくても、ブラウザ側の入れ方は使える */
+}
 
 /*
  * 外へ送る道具を取り上げる（CSPが効かない場所への備え）。

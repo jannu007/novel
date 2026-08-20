@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cover from '../components/Cover';
+import InstallBar from '../components/InstallBar';
 import { keepStorage, listBooks, saveBook, type VoiceBook } from '../db';
 import { readVoiceFiles, takeSharedFiles } from '../import';
 
@@ -92,6 +93,8 @@ export default function Library() {
           e.target.value = '';
         }}
       />
+
+      <InstallBar />
 
       {errors.length > 0 && (
         <div className="banner warn">

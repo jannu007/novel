@@ -546,3 +546,41 @@ select {
     animation: none !important;
   }
 }
+
+/* ---- アプリとして入れる案内 ---- */
+
+.install-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 14px 16px;
+}
+
+.install-text {
+  flex: 1;
+  min-width: 200px;
+  font-size: 14px;
+}
+
+.install-text .sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--dim);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.install-steps {
+  margin: 10px 0 0;
+  padding-left: 1.3em;
+  color: var(--dim);
+  font-size: 12.5px;
+  line-height: 1.9;
+}
+
+.install-actions {
+  display: flex;
+  gap: 8px;
+}
