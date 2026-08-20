@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  translate="no"：ブラウザの「このページを翻訳しますか？」を止める。
+  翻訳はページの文字を翻訳サーバーへ送って行われるため、CSPでは防げない
+  （ブラウザ自身の機能なので、ページに掛けた通信の決まりの外側で動く）。
+  本文がそこへ渡らないよう、翻訳の対象にしない宣言をしておく。
+
+  同じ理由で、読み上げの声も「端末の中だけで話すもの」しか使わない。
+  こちらはHTMLでは宣言できないので、コード側で守っている（src/voice/speech.ts）。
+-->
+<html lang="ja" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <!--
+      安全のための宣言（CSP）。
+      このアプリは通信を一切しない。だから「外へ送る手段」そのものを
+      ブラウザ側で禁止している。とくに connect-src 'none' は、
+      fetch・XMLHttpRequest・WebSocket・sendBeacon・EventSource を
+      すべて封じる指定で、万一なにかが紛れ込んでも本文を送り出せない。
+      画像も端末の中で作ったもの（data: / blob:）しか読み込めないので、
+      本文に外部の画像URLが書かれていても取りに行かない。
+      （開発サーバーでは vite.config.ts がこの行を緩めて動かしている）
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; media-src 'none'; manifest-src 'self'; worker-src 'self'; child-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#f6f3ec" />
+    <meta
+      name="description"
+      content="手元のMarkdown（.md）やテキストを、端末の中だけで朗読するアプリ。本文を外へ送る種類の声は使わないので、本の中身が漏れません。完全無料・登録不要・通信なし・オフラインで動きます。"
+    />
+    <title>語り部 | 本の中身を外に出さない朗読アプリ</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="語り部" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/voice/main.tsx"></script>
+  </body>
+</html>
