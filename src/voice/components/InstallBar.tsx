@@ -22,6 +22,7 @@ import {
   useCanInstall,
   useInstalled,
 } from '../install';
+import { chromeIntentUrl, copyPageUrl, isAndroid, isInAppBrowser } from '../browser';
 
 const DISMISSED_KEY = 'kataribe:install-dismissed';
 
@@ -36,6 +37,8 @@ export default function InstallBar() {
     }
   });
   const [showIosSteps, setShowIosSteps] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [inApp] = useState(isInAppBrowser);
 
   // 入れ終わったあと・すでにアプリとして開いているときは出さない
   if (justInstalled || isStandalone() || dismissed) return null;
@@ -43,6 +46,15 @@ export default function InstallBar() {
   // iPhone・iPadはブラウザが確認を出せないので、その端末での入れ方を示す
   const iosOnly = isIos() && !canInstall;
   if (!canInstall && !iosOnly) return null;
+
+  /*
+   * Androidは、アプリの実体（WebAPK）を取り込んでから端末側でインストールする。
+   * LINEやメールなどのアプリ内ブラウザから始めた場合、取り込み（ダウンロード）は
+   * 始まるのに、そこで端末に止められて入らないことがある。「ダウンロードは始まる
+   * のに入らない」という報告の直接の原因はこれで、ページ側からは治せない。
+   * ふつうのChromeで開き直すしかないので、その案内をここに出す。
+   */
+  const showAndroidWarning = isAndroid();
 
   const close = () => {
     setDismissed(true);
@@ -67,6 +79,28 @@ export default function InstallBar() {
             <li>「ホーム画面に追加」を選ぶ</li>
             <li>右上の「追加」を押す</li>
           </ol>
+        )}
+        {showAndroidWarning && (
+          <div className="install-warning">
+            <b>ダウンロードは始まるのに入らないときは。</b>
+            {inApp
+              ? 'いまLINEやメールなどのアプリの中で開いています。'
+              : ''}
+            アプリの中で開いた画面からは<b>入れられない</b>ことがあります
+            （端末がインストールを止めるため。ページ側では直せません）。
+            先にChromeで開き直してから、あらためてお試しください。
+            <div className="install-actions" style={{ marginTop: 8 }}>
+              <a className="btn" href={chromeIntentUrl()}>
+                Chromeで開く
+              </a>
+              <button
+                className="btn"
+                onClick={async () => setCopied(await copyPageUrl())}
+              >
+                {copied ? 'コピーしました' : 'リンクをコピー'}
+              </button>
+            </div>
+          </div>
         )}
       </div>
       <div className="install-actions">
