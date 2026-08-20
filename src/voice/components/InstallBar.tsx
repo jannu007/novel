@@ -22,7 +22,12 @@ import {
   useCanInstall,
   useInstalled,
 } from '../install';
-import { chromeIntentUrl, copyPageUrl, isAndroid, isInAppBrowser } from '../browser';
+import {
+  chromeIntentUrl,
+  copyPageUrl,
+  isInAppBrowser,
+  isSamsungInternet,
+} from '../browser';
 
 const DISMISSED_KEY = 'kataribe:install-dismissed';
 
@@ -37,24 +42,27 @@ export default function InstallBar() {
     }
   });
   const [showIosSteps, setShowIosSteps] = useState(false);
+  const [showSamsungSteps, setShowSamsungSteps] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inApp] = useState(isInAppBrowser);
+  const [samsung] = useState(isSamsungInternet);
 
   // 入れ終わったあと・すでにアプリとして開いているときは出さない
   if (justInstalled || isStandalone() || dismissed) return null;
 
   // iPhone・iPadはブラウザが確認を出せないので、その端末での入れ方を示す
   const iosOnly = isIos() && !canInstall;
-  if (!canInstall && !iosOnly) return null;
 
   /*
-   * Androidは、アプリの実体（WebAPK）を取り込んでから端末側でインストールする。
-   * LINEやメールなどのアプリ内ブラウザから始めた場合、取り込み（ダウンロード）は
-   * 始まるのに、そこで端末に止められて入らないことがある。「ダウンロードは始まる
-   * のに入らない」という報告の直接の原因はこれで、ページ側からは治せない。
-   * ふつうのChromeで開き直すしかないので、その案内をここに出す。
+   * Samsung Internetは、確認（beforeinstallprompt）を出す仕組み自体は
+   * Chromeと同じだが、確認して「追加」を選んでも入らずに終わることがある
+   * （利用者から報告された）。ブラウザ側の実装差で、ページ側からは
+   * 検知も修正もできない。だから「入れる」を試すだけでなく、
+   *   ・確実に動くChromeで開き直す道
+   *   ・Samsung Internet自身のメニューから手動で入れる道
+   * の両方を、確認が出るかどうかに関わらず示しておく。
    */
-  const showAndroidWarning = isAndroid();
+  if (!canInstall && !iosOnly && !samsung) return null;
 
   const close = () => {
     setDismissed(true);
@@ -80,23 +88,27 @@ export default function InstallBar() {
             <li>右上の「追加」を押す</li>
           </ol>
         )}
-        {showAndroidWarning && (
+        {samsung && (
           <div className="install-warning">
-            <b>ダウンロードは始まるのに入らないときは。</b>
-            {inApp
-              ? 'いまLINEやメールなどのアプリの中で開いています。'
-              : ''}
-            アプリの中で開いた画面からは<b>入れられない</b>ことがあります
-            （端末がインストールを止めるため。ページ側では直せません）。
-            先にChromeで開き直してから、あらためてお試しください。
+            <b>このブラウザ（Samsung Internet）は、確認しても入らないことがあります。</b>
+            {inApp && 'いまアプリの中で開いています。'}
+            ブラウザ側の実装によるもので、こちら側では直せません。
+            <b>Chromeで開き直す</b>のがいちばん確実です。
+            {showSamsungSteps && (
+              <ol className="install-steps">
+                <li>画面右下（または右上）のメニュー（≡）を開く</li>
+                <li>「現在のページを追加」を選ぶ</li>
+                <li>「ホーム画面」を選び、「追加」を押す</li>
+              </ol>
+            )}
             <div className="install-actions" style={{ marginTop: 8 }}>
-              <a className="btn" href={chromeIntentUrl()}>
+              <a className="btn primary" href={chromeIntentUrl()}>
                 Chromeで開く
               </a>
-              <button
-                className="btn"
-                onClick={async () => setCopied(await copyPageUrl())}
-              >
+              <button className="btn" onClick={() => setShowSamsungSteps((v) => !v)}>
+                {showSamsungSteps ? '手順を閉じる' : 'このまま入れる手順'}
+              </button>
+              <button className="btn" onClick={async () => setCopied(await copyPageUrl())}>
                 {copied ? 'コピーしました' : 'リンクをコピー'}
               </button>
             </div>
@@ -108,11 +120,11 @@ export default function InstallBar() {
           <button className="btn primary" onClick={() => setShowIosSteps((v) => !v)}>
             {showIosSteps ? '手順を閉じる' : '入れ方を見る'}
           </button>
-        ) : (
+        ) : canInstall ? (
           <button className="btn primary" onClick={() => void promptInstall()}>
             入れる
           </button>
-        )}
+        ) : null}
         <button className="btn" onClick={close}>
           あとで
         </button>

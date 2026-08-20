@@ -28,6 +28,20 @@ export function isAndroid(): boolean {
 }
 
 /**
+ * Samsung Internet（Galaxy端末の標準ブラウザ）か。
+ *
+ * Chromeと同じ仕組み（beforeinstallprompt）を持つはずだが、実際には
+ * 「入れる」の確認を出しても、そのまま入らずに終わることがある
+ * （このアプリ自身で報告された）。原因はブラウザ側の実装差で、
+ * ページ側からは検知も修正もできない。確実なのは、確認そのものを
+ * Samsung Internetの自分のメニューから出す、もしくはChromeで開き直すこと。
+ * そのため、ほかのAndroidブラウザとは別に案内を出し分ける。
+ */
+export function isSamsungInternet(): boolean {
+  return /SamsungBrowser/i.test(navigator.userAgent);
+}
+
+/**
  * Android で、いまのページを Chrome 本体で開き直すためのリンク。
  * アプリ内ブラウザから抜け出すのに使う（対応していない端末では元のページに戻る）。
  */
