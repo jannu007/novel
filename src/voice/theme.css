@@ -165,6 +165,14 @@ button {
   background: var(--panel);
   font-size: 15px;
   text-decoration: none;
+  /*
+   * 日本語の文字は、単語の区切り（半角スペース）が無いため、
+   * 横幅が足りないと1文字ずつ折り返されてしまう（flexの縮小と組み合わさると
+   * 極端に細長いボタンになる）。ボタンの中の文字は折り返させない。
+   * 収まらないときは、ボタンごと次の行へ送る（親側の flex-wrap で対応）。
+   */
+  white-space: nowrap;
+  flex: none;
 }
 
 .btn.primary {
@@ -583,6 +591,7 @@ select {
 
 .install-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -594,4 +603,15 @@ select {
   border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));
   font-size: 12.5px;
   line-height: 1.8;
+}
+
+/*
+ * 案内の中のボタンは、通常のボタンより控えめな大きさでよい
+ * （主役は本文であって、ボタンではないため）。
+ */
+.install-warning .btn,
+.install-text > .install-actions .btn {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
 }
