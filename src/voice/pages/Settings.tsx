@@ -26,6 +26,7 @@ import {
 } from '../settings';
 import { useVoices } from '../useVoices';
 import { BUILD_ID, serviceWorkerState } from '../sw-client';
+import { refreshApp } from '../browser';
 
 function Switch({
   on,
@@ -379,6 +380,22 @@ export default function Settings() {
         <div className="row">
           <label>いま動いている版</label>
           <span className="note">{BUILD_ID}</span>
+        </div>
+        {/*
+          直したはずのものが古いままに見えるとき用の逃げ道。
+          端末に残っているアプリの控えを捨てて、最新の版を取り直す。
+          書棚（IndexedDB）には触れないので、本は消えない。
+        */}
+        <div className="row">
+          <label>
+            最新の版を取り直す
+            <span className="sub">
+              直したはずのものが古いままのときに。本は消えません
+            </span>
+          </label>
+          <button className="btn" onClick={() => refreshApp()}>
+            取り直す
+          </button>
         </div>
 
         {books.map((book) => (
