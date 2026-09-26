@@ -1463,3 +1463,120 @@ select {
     opacity: 1;
   }
 }
+
+/* ---------------- 本文の上で直す ---------------- */
+
+/*
+ * 直している段。
+ *
+ * 組んだ文字はそのまま置いたまま、見えなくするだけにしてある。
+ * こうすると段の大きさが変わらないので、ページの割り方が動かない
+ * （直しているあいだに前後の文字が動くと、どこを直しているのか見失う）。
+ * 書き込み欄はその上にぴったり重ねるので、字は元の場所に見えたまま直せる。
+ */
+.md-block.editing {
+  position: relative;
+}
+
+.md-block.editing > :not(.inline-edit) {
+  visibility: hidden;
+}
+
+.inline-edit {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  resize: none;
+  overflow: auto;
+  scrollbar-width: none;
+  /* 字を入れる印だけは、本文より目立たせる */
+  caret-color: var(--accent);
+}
+
+.inline-edit::-webkit-scrollbar {
+  display: none;
+}
+
+/* 段落は一字下げで組まれているので、書き込み欄も合わせる */
+.md-block.editing-p .inline-edit {
+  text-indent: 1em;
+}
+
+/*
+ * 縦書き。段が何列にもまたがっていても、書き込み欄は1ページぶんに収める。
+ * 見えている窓の外へ字が出ると追えなくなるので、はみ出すぶんは
+ * 欄の中で送る（書いている先は、ブラウザが自動で追ってくれる）。
+ */
+.study.v .inline-edit {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-feature-settings: 'vpal' 1, 'vkrn' 1;
+  top: 0;
+  right: 0;
+  height: 100%;
+  /*
+   * 段そのものの幅ではなく、1ページぶんの幅を持たせる。
+   * 直すと字数が増えるので、元の段の幅しか無いと、書いたそばから
+   * 窓の外へ出ていってしまう。開くときにその段の頭までページを
+   * 寄せてあるので、この幅がちょうど見えている窓に重なる。
+   */
+  width: var(--page);
+}
+
+.study.h .inline-edit {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--pageh, 100%);
+}
+
+/* 直しているところが分かるように、うすく敷く */
+.md-block.editing::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);
+  pointer-events: none;
+}
+
+/* 直しているあいだ、画面の下に出す帯 */
+.edit-bar {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 8px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  animation: sel-rise 0.16s var(--ease);
+  white-space: nowrap;
+  max-width: calc(100% - 20px);
+}
+
+.edit-bar-note {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 380px) {
+  .edit-bar-note {
+    display: none;
+  }
+}

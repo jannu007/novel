@@ -126,3 +126,35 @@ export function clearSelection(): void {
     /* 消せない環境でも実害はない */
   }
 }
+
+/**
+ * 画面のその点が、かたまりの地の文の何文字目にあたるか。
+ *
+ * 二度押しで直す画面を開いたときに、押したところへ字を入れる印（カーソル）を
+ * 置くために使う。取れなければ null を返し、呼んだ側は段の先頭に置く。
+ */
+export function offsetAtPoint(block: Element, x: number, y: number): number | null {
+  const doc = document as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  };
+  let node: Node | null = null;
+  let offset = 0;
+  try {
+    const position = doc.caretPositionFromPoint?.(x, y);
+    if (position) {
+      node = position.offsetNode;
+      offset = position.offset;
+    } else {
+      const range = doc.caretRangeFromPoint?.(x, y);
+      if (range) {
+        node = range.startContainer;
+        offset = range.startOffset;
+      }
+    }
+  } catch {
+    return null;
+  }
+  if (!node || !block.contains(node)) return null;
+  return offsetIn(block, node, offset);
+}
