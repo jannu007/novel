@@ -1389,10 +1389,19 @@ select {
   pointer-events: none;
 }
 
-/* 選んだところのそばに出る小さなボタン */
+/*
+ * 選んだところに出す小さなボタン。
+ *
+ * 選んだ文字のそばに置くと、縦書きでは行が画面の左端に寄るほど枠が
+ * はみ出して切れてしまい、端の行ほど押せなくなる。指で隠れることもある。
+ * そこで**いつも画面の上の中央**に出す。場所が毎回同じなら、
+ * どこを選んでも同じ動きで押せる。
+ */
 .sel-bar {
   position: absolute;
   z-index: 30;
+  top: calc(max(8px, env(safe-area-inset-top)) + 54px);
+  left: 50%;
   transform: translateX(-50%);
   display: flex;
   gap: 2px;
@@ -1401,8 +1410,11 @@ select {
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: var(--shadow);
-  animation: fade 0.14s var(--ease);
+  animation: rise 0.16s var(--ease);
   white-space: nowrap;
+  /* 狭い画面でも切れないよう、はみ出す前に縮める */
+  max-width: calc(100% - 20px);
+  overflow: hidden;
 }
 
 .sel-bar button {
