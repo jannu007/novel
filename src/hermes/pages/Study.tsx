@@ -63,6 +63,10 @@ const SWIPE_RATIO = 0.16;
 const SWIPE_MIN = 44;
 /** すばやく払ったときは、距離が短くてもページを送る。 */
 const FLICK_SPEED = 0.45;
+/** この間に二度押されたら「二度押し」とみなす。 */
+const DOUBLE_MS = 340;
+/** 二度押しとみなす、指のずれの許し（px）。 */
+const DOUBLE_SLOP = 28;
 
 /** 「組み直したら、その章の最後のページを開く」という目印。 */
 const LAST_PAGE = -1;
@@ -88,7 +92,16 @@ export default function Study() {
   const [outLink, setOutLink] = useState<string | null>(null);
 
   /** 直している段（かたまりの番号）と、その元の文 */
-  const [editing, setEditing] = useState<{ block: number; text: string } | null>(null);
+  /**
+   * いま直している段。どの章のものかも一緒に持つ。
+   * 二度押しでページを戻しながら開くことがあり、そのとき画面側の「いまの章」は
+   * まだ切り替わっていない。番号だけで持つと、別の章の段を直してしまう。
+   */
+  const [editing, setEditing] = useState<{
+    chapter: number;
+    block: number;
+    text: string;
+  } | null>(null);
   const [editText, setEditText] = useState('');
   /**
    * いま選ばれているところ。ここに値があるあいだ、画面の上に小さなボタンを出す。
@@ -112,6 +125,19 @@ export default function Study() {
   const flowRef = useRef<HTMLDivElement>(null);
   const pointer = useRef<{ x: number; y: number; t: number; id: number } | null>(null);
   const moved = useRef(false);
+  /** 二度押しを見分けるための、一度目の押しの控え。 */
+  const lastTap = useRef<{
+    at: number;
+    x: number;
+    y: number;
+    /** 押された段。段の上でなければ null */
+    block: number | null;
+    chapter: number;
+    /** 一度目に送ったページ数（二度押しなら、これを戻す） */
+    turned: number;
+    /** 一度目に操作パネルを出し入れしたか（同じく、戻す） */
+    toggledChrome: boolean;
+  } | null>(null);
   const keepBlock = useRef<number | null>(null);
   const keepOffset = useRef(0);
   const pendingAnchor = useRef<string | null>(null);
@@ -338,16 +364,16 @@ export default function Study() {
 
   /** その段の元の文を出して、直せるようにする。 */
   const openEditor = useCallback(
-    (block: number) => {
+    (block: number, atChapter: number = chapter) => {
       if (!record || !book) return;
-      const target = chapters[chapter]?.blocks[block];
+      const target = chapters[atChapter]?.blocks[block];
       const text = sourceOfBlock(record.source, book, target);
       if (text === null) {
         setToast('この段は直せません');
         return;
       }
       clearSelection();
-      setEditing({ block, text });
+      setEditing({ chapter: atChapter, block, text });
       setEditText(text);
       setSheet('edit');
     },
@@ -357,7 +383,7 @@ export default function Study() {
   /** 直した内容を原稿に書き戻す。 */
   async function applyEdit() {
     if (!record || !book || !editing) return;
-    const target = chapters[chapter]?.blocks[editing.block];
+    const target = chapters[editing.chapter]?.blocks[editing.block];
     const before = editing.text;
     const after = editText;
     if (after === before) {
@@ -599,8 +625,59 @@ export default function Study() {
     }
   };
 
+  /**
+   * 画面を押したとき。
+   *
+   * 二度押しは「その段を直す」に充てている。本文のどこでも効かせたいが、
+   * 左右の端は一度押しでページが送られるので、素直に作ると
+   * 二度押しでページが2つ動いてしまう。かといって、二度目を待ってから
+   * 送るようにすると、ページ送りがもたついて読む邪魔になる。
+   *
+   * そこで**一度目はすぐ送り、二度目だと分かった時点で送ったぶんを戻す**。
+   * 送りの手ざわりは変わらないまま、どこを二度押ししても直す画面が開く。
+   */
   const onTap = (e: React.MouseEvent) => {
     if (moved.current) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const target = (e.target as HTMLElement | null)?.closest?.('.md-block');
+    const index = target instanceof HTMLElement ? Number(target.dataset.b) : NaN;
+    const block = Number.isInteger(index) ? index : null;
+    const now = performance.now();
+    const first = lastTap.current;
+
+    /* ---- 二度目か ---- */
+    if (
+      first &&
+      now - first.at < DOUBLE_MS &&
+      Math.abs(e.clientX - first.x) < DOUBLE_SLOP &&
+      Math.abs(e.clientY - first.y) < DOUBLE_SLOP &&
+      first.block !== null
+    ) {
+      lastTap.current = null;
+      if (first.chapter !== chapter) {
+        /*
+         * 一度目の送りで章をまたいでいた（章の最初のページで「前へ」を
+         * 押したときなど）。章ごと戻し、押した段のところへ組み直させる。
+         */
+        setChapter(first.chapter);
+        keepBlock.current = first.block;
+      } else if (first.turned !== 0) {
+        go(-first.turned);
+      }
+      if (first.toggledChrome) setChrome((v) => !v);
+      /*
+       * 机の上のブラウザでは、二度押しでその語が選ばれる。
+       * 選んだままだと印のボタンが出たままになるので、ここで解いておく。
+       */
+      clearSelection();
+      setSelAction(null);
+      openEditor(first.block, first.chapter);
+      return;
+    }
+
+    /* ---- 一度目 ---- */
     /*
      * 選んだところを消すつもりで押したときに、ページまでめくれてしまうと
      * 読んでいた場所を見失う。最初の一押しは選択を解くだけにする。
@@ -608,29 +685,31 @@ export default function Study() {
     if (selAction) {
       setSelAction(null);
       clearSelection();
+      lastTap.current = null;
       return;
     }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    if (x < 0.34) go(forwardSign > 0 ? 1 : -1);
-    else if (x > 0.66) go(forwardSign > 0 ? -1 : 1);
-    else setChrome((v) => !v);
-  };
 
-  /**
-   * 画面の真ん中を二度押すと、その段を直す。
-   *
-   * 左右の三分の一はページ送りなので、そこでは受けない
-   * （二度押すとページが2つ進んでしまい、何が起きたのか分からなくなる）。
-   * 真ん中の一度押しは操作パネルの出し入れだけなので、二度押しても元に戻る。
-   */
-  const onDoubleTap = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    if (x < 0.34 || x > 0.66) return;
-    const target = (e.target as HTMLElement | null)?.closest?.('.md-block');
-    const index = target instanceof HTMLElement ? Number(target.dataset.b) : NaN;
-    if (Number.isInteger(index)) openEditor(index);
+    let turned = 0;
+    let toggledChrome = false;
+    if (x < 0.34) {
+      turned = forwardSign > 0 ? 1 : -1;
+      go(turned);
+    } else if (x > 0.66) {
+      turned = forwardSign > 0 ? -1 : 1;
+      go(turned);
+    } else {
+      setChrome((v) => !v);
+      toggledChrome = true;
+    }
+    lastTap.current = {
+      at: now,
+      x: e.clientX,
+      y: e.clientY,
+      block,
+      chapter,
+      turned,
+      toggledChrome,
+    };
   };
 
   useEffect(() => {
@@ -799,7 +878,6 @@ export default function Study() {
           setDrag(0);
         }}
         onClick={onTap}
-        onDoubleClick={onDoubleTap}
       >
         <div
           className="stage-inner"
@@ -872,7 +950,7 @@ export default function Study() {
           <span>
             {page + 1} / {pages}ページ
           </span>
-          <span className="foot-hint">なぞると印、真ん中を二度押しで直す</span>
+          <span className="foot-hint">なぞると印、二度押しで直す</span>
           <span className="foot-rest">
             {pages - page - 1 > 0
               ? `この章 あと${pages - page - 1}ページ`
