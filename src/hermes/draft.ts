@@ -278,3 +278,45 @@ export function sourceOffsetOf(source: string, plain: string, plainOffset: numbe
   }
   return Math.min(at, source.length);
 }
+
+/**
+ * 画面で直した地の文を、元の文（Markdown）に書き戻す。
+ *
+ * 人が直すのは**組み上がった文字**のほうなので、記法は見えていない。
+ * そのまま置き換えると、ルビや強調がまるごと消えてしまう。
+ * そこで「どこからどこまでが変わったか」だけを取り出し、
+ * 元の文のその範囲だけを差し替える。触っていないところの記法は残る。
+ *
+ * 変わった範囲は、前と後ろから同じ文字を削っていって決める
+ * （一字直したなら、その一字だけが範囲になる）。
+ * 範囲の端を元の文の位置に直すのは `sourceOffsetOf`。
+ *
+ * 直した範囲が記法の途中で切れている場合（強調の始まりだけを消したときなど）は、
+ * 記法が崩れることがある。そのときは「直した記録」から元に戻せる。
+ */
+export function applyPlainEdit(
+  source: string,
+  oldPlain: string,
+  newPlain: string
+): string | null {
+  if (oldPlain === newPlain) return null;
+
+  // 前から同じところ
+  let head = 0;
+  const max = Math.min(oldPlain.length, newPlain.length);
+  while (head < max && oldPlain[head] === newPlain[head]) head++;
+
+  // 後ろから同じところ（前で数えたぶんとは重ねない）
+  let tail = 0;
+  while (
+    tail < max - head &&
+    oldPlain[oldPlain.length - 1 - tail] === newPlain[newPlain.length - 1 - tail]
+  ) {
+    tail++;
+  }
+
+  const from = sourceOffsetOf(source, oldPlain, head);
+  const to = sourceOffsetOf(source, oldPlain, oldPlain.length - tail);
+  if (to < from) return null;
+  return source.slice(0, from) + newPlain.slice(head, newPlain.length - tail) + source.slice(to);
+}
