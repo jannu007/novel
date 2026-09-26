@@ -158,7 +158,7 @@ export default function Study() {
    * ブラウザの同期を使っていれば他の端末にも渡っていく。
    */
   useEffect(() => {
-    document.title = 'ムネモシュネ';
+    document.title = 'ヘルメス';
   }, [id]);
 
   useEffect(() => {
@@ -1376,7 +1376,7 @@ export default function Study() {
         onClose={() => setOutLink(null)}
       >
         <p className="sheet-note">
-          押すとムネモシュネの外（ブラウザなど別のアプリ）に移ります。移った先には、
+          押すとヘルメスの外（ブラウザなど別のアプリ）に移ります。移った先には、
           あなたがここを開いたことが記録として残ることがあります。原稿そのものは渡りません。
         </p>
         <p className="link-dest">{outLink}</p>

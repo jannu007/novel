@@ -54,7 +54,7 @@ export const FONT_LABEL: Record<FontKind, string> = {
   gothic: 'ゴシック',
 };
 
-const KEY = 'mnemosyne:settings';
+const KEY = 'hermes:settings';
 
 function read(): Settings {
   try {

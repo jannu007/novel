@@ -1,5 +1,5 @@
 /**
- * 「栞」「語り部」「ムネモシュネ」の安全のしくみが崩れていないかを、
+ * 「栞」「語り部」「ヘルメス」の安全のしくみが崩れていないかを、
  * ビルド結果に対して確かめる。
  *
  * 人が気をつけるだけでは、いつか誰か（将来の自分を含む）が一行足したときに
@@ -38,14 +38,14 @@ function cspOf(html) {
 const APPS = [
   { name: '栞', dir: 'read', src: join('src', 'read') },
   { name: '語り部', dir: 'voice', src: join('src', 'voice') },
-  { name: 'ムネモシュネ', dir: 'mnemo', src: join('src', 'mnemo') },
+  { name: 'ヘルメス', dir: 'hermes', src: join('src', 'hermes') },
 ];
 
 /**
  * 同じ置き場に同居しているアプリ全部。
  *
  * 同じサイトに置かれたページは、互いの保存領域を読める間柄になる。
- * どれか1つでも外へ送れる口が開いていれば、そこが栞・語り部・ムネモシュネの
+ * どれか1つでも外へ送れる口が開いていれば、そこが栞・語り部・ヘルメスの
  * 原稿の抜け道になってしまう。だから執筆アプリのほうにも、
  * 「通信の口が開いていないこと」だけは同じ強さで確かめる。
  */
@@ -374,7 +374,7 @@ for (const app of NEIGHBOURS) {
  * `src` の直下（小説執筆スタジオ本体）も見る。
  * 各アプリの下は上で見ているので、ここでは重ねて見ない。
  */
-const APP_DIRS = new Set(['read', 'voice', 'desk', 'md', 'mnemo']);
+const APP_DIRS = new Set(['read', 'voice', 'desk', 'md', 'hermes']);
 for (const path of walk('src')) {
   if (APP_DIRS.has(path.split(/[\\/]/)[1])) continue;
   const body = stripLiterals(readFileSync(path, 'utf8'));
@@ -425,6 +425,6 @@ if (failures.length > 0) {
 }
 console.log(
   '安全のしくみ: 問題なし' +
-    '（栞・語り部・ムネモシュネ：CSP／通信の道具／HTML流し込み、' +
+    '（栞・語り部・ヘルメス：CSP／通信の道具／HTML流し込み、' +
     '語り部：読み上げの声、同居アプリ：通信の口、ひとり版：ハッシュ固定）'
 );

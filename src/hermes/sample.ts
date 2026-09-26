@@ -7,14 +7,14 @@
  * わざと直しどころを残してあるのはそのため。
  */
 
-export const SAMPLE_FILE_NAME = 'ムネモシュネの使い方.md';
+export const SAMPLE_FILE_NAME = 'ヘルメスの使い方.md';
 
 export const SAMPLE_DRAFT = `---
 title: 灯台まで
 author: 試し書き
 ---
 
-# ムネモシュネの使い方
+# ヘルメスの使い方
 
 　この原稿は、消してしまってかまいません。まずは一段、直してみてください。
 

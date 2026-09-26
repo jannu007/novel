@@ -1,5 +1,5 @@
 /**
- * 「ムネモシュネ」の原稿を保存する場所。
+ * 「ヘルメス」の原稿を保存する場所。
  *
  * 取り込んだ原稿は、この端末のブラウザの中（IndexedDB）だけに保存される。
  * サーバーへ送る処理はアプリのどこにも無く、通信そのものを行わない。
@@ -9,7 +9,7 @@
 
 import { get, set, del, keys, createStore } from 'idb-keyval';
 
-const store = createStore('mnemosyne', 'drafts');
+const store = createStore('hermes', 'drafts');
 
 const DRAFT_PREFIX = 'draft:';
 const draftKey = (id: string) => `${DRAFT_PREFIX}${id}`;
@@ -38,7 +38,7 @@ export const MARK_KINDS: MarkKind[] = ['fix', 'question', 'good', 'note'];
  *
  * 場所は「何章の何番目のかたまりの、地の文で何文字目から何文字目まで」で覚える。
  * 原稿を直すとかたまりの番号も文字の位置もずれるので、そのときの文字（`quote`）も
- * 一緒に残しておき、ずれていたら探し直す（`src/mnemo/draft.ts` の `reanchor`）。
+ * 一緒に残しておき、ずれていたら探し直す（`src/hermes/draft.ts` の `reanchor`）。
  */
 export interface Mark {
   id: string;
@@ -116,6 +116,44 @@ export async function listDrafts(): Promise<DraftRecord[]> {
     .filter((d): d is DraftRecord => Boolean(d))
     .map(normalize)
     .sort((a, b) => b.openedAt - a.openedAt);
+}
+
+/**
+ * 前の名前（ムネモシュネ）で保存されていた原稿を引き継ぐ。
+ *
+ * このアプリは一度「ムネモシュネ」という名前で出したあと、ヘルメスに改めた。
+ * 保存先の名前もそれに合わせて変えたので、そのままでは前の名前で
+ * 保存した原稿が見えなくなる。IndexedDBは置き場所（ドメイン）ごとの
+ * 持ち物なので、名前さえ分かっていれば読める。開いたときに一度だけ拾い、
+ * まだ無いものだけを写す（前の側は消さない。写し損ねても元が残るように）。
+ *
+ * 前の名前を使っていなかった人には、空のデータベースが1つ作られるだけで
+ * 何も起きない。役目を終えたら、この関数ごと消してよい。
+ */
+const OLD_STORE = createStore('mnemosyne', 'drafts');
+
+export async function adoptOldDrafts(): Promise<number> {
+  try {
+    const oldKeys = (await keys(OLD_STORE)).filter(
+      (k): k is string => typeof k === 'string' && k.startsWith(DRAFT_PREFIX)
+    );
+    if (oldKeys.length === 0) return 0;
+    const mine = new Set(
+      (await keys(store)).filter((k): k is string => typeof k === 'string')
+    );
+    let taken = 0;
+    for (const key of oldKeys) {
+      if (mine.has(key)) continue;
+      const draft = await get<DraftRecord>(key, OLD_STORE);
+      if (!draft) continue;
+      await set(key, draft, store);
+      taken++;
+    }
+    return taken;
+  } catch {
+    // 読めなくても、いまの原稿は開ける
+    return 0;
+  }
 }
 
 export async function loadDraft(id: string): Promise<DraftRecord | undefined> {
