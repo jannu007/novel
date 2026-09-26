@@ -91,17 +91,13 @@ export default function Study() {
   const [editing, setEditing] = useState<{ block: number; text: string } | null>(null);
   const [editText, setEditText] = useState('');
   /**
-   * いま選ばれているところと、そこに出す小さなボタンの位置。
+   * いま選ばれているところ。ここに値があるあいだ、画面の上に小さなボタンを出す。
    *
    * 「選んでから押す」ではなく「選んだ時点で出す」ようにしている。
    * 画面を押した瞬間にブラウザが選択を捨ててしまうので、あとから
    * 押して拾おうとすると、その時にはもう何も選ばれていないため。
    */
-  const [selAction, setSelAction] = useState<{
-    sel: BlockSelection;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [selAction, setSelAction] = useState<BlockSelection | null>(null);
   /** これから印を付けるところ */
   const [pending, setPending] = useState<BlockSelection | null>(null);
   const [pendingKind, setPendingKind] = useState<MarkKind>('fix');
@@ -465,28 +461,13 @@ export default function Study() {
   /* ---------------- 印 ---------------- */
 
   /*
-   * 文字が選ばれたら、その場に小さなボタンを出す。
-   * 選んでいる最中も何度も呼ばれるが、位置を置き直すだけなので邪魔にならない。
+   * 文字が選ばれたら、画面の上に小さなボタンを出す。
+   * 選んでいる最中も何度も呼ばれるが、出す場所はいつも同じなので動かない。
    */
   useEffect(() => {
     const onSelect = () => {
       const flow = flowRef.current;
-      if (!flow) {
-        setSelAction(null);
-        return;
-      }
-      const found = readSelection(flow);
-      if (!found) {
-        setSelAction(null);
-        return;
-      }
-      const selection = window.getSelection();
-      const rect = selection?.rangeCount ? selection.getRangeAt(0).getBoundingClientRect() : null;
-      if (!rect || (rect.width === 0 && rect.height === 0)) {
-        setSelAction(null);
-        return;
-      }
-      setSelAction({ sel: found, x: rect.left + rect.width / 2, y: rect.top });
+      setSelAction(flow ? readSelection(flow) : null);
     };
     document.addEventListener('selectionchange', onSelect);
     return () => document.removeEventListener('selectionchange', onSelect);
@@ -912,19 +893,15 @@ export default function Study() {
       {selAction && sheet === null && openedMark === null && (
         <div
           className="sel-bar"
-          style={{
-            left: Math.min(Math.max(selAction.x, 96), (stage?.w ?? 360) - 96),
-            top: Math.max(selAction.y - 52, 56),
-          }}
           onPointerDown={(e) => e.preventDefault()}
         >
-          <button onClick={() => startMark(selAction.sel)}>
+          <button onClick={() => startMark(selAction)}>
             <MarkIcon />
             印をつける
           </button>
           <button
             onClick={() => {
-              const block = selAction.sel.block;
+              const block = selAction.block;
               setSelAction(null);
               clearSelection();
               openEditor(block);
