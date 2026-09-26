@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  translate="no"：ブラウザの「このページを翻訳しますか？」を止める。
+  翻訳はページの文字を翻訳サーバーへ送って行われるため、CSPでは防げない
+  （ブラウザ自身の機能なので、ページに掛けた通信の決まりの外側で動く）。
+  直しかけの原稿がそこへ渡らないよう、翻訳の対象にしない宣言をしておく。
+-->
+<html lang="ja" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <!--
+      安全のための宣言（CSP）。
+      このアプリは通信を一切しない。だから「外へ送る手段」そのものを
+      ブラウザ側で禁止している。とくに connect-src 'none' は、
+      fetch・XMLHttpRequest・WebSocket・sendBeacon・EventSource を
+      すべて封じる指定で、万一なにかが紛れ込んでも原稿を送り出せない。
+      推敲中の原稿は、書き上がった本よりも人に見せたくないものなので、
+      栞と同じ強さで閉じてある。
+      （開発サーバーでは vite.config.ts がこの行を緩めて動かしている）
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; media-src 'none'; manifest-src 'self'; worker-src 'self'; child-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <!--
+      interactive-widget=resizes-content：
+      キーボードが出たときに画面の枠そのものを縮める。直しを打ち込む画面が
+      多いので、これが無いと入力欄がキーボードの裏に隠れてしまう。
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#f4f1ea" />
+    <meta
+      name="description"
+      content="手元のMarkdown（.md）原稿を、本と同じ縦書きで読みながら、その場で直し、気づいたところに印をつけられる推敲アプリ。完全無料・登録不要・通信なしで、原稿は端末の中だけに残ります。"
+    />
+    <title>ムネモシュネ | 読みながら直す推敲アプリ</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="ムネモシュネ" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/mnemo/main.tsx"></script>
+  </body>
+</html>

@@ -7,7 +7,7 @@
  *   3. 目次             … 見出しの階層をそのまま並べる
  */
 
-import { parseMarkdown, type Block } from './markdown';
+import { parseMarkdown, type Block, type SpannedBlock } from './markdown';
 import { blockChars, countBlocks, type BookCounts } from './count';
 
 export interface Chapter {
@@ -15,7 +15,8 @@ export interface Chapter {
   title: string;
   /** 目次から飛ぶときの目印 */
   id: string;
-  blocks: Block[];
+  /** かたまりの並び。原文の行範囲（`src`）も付いている。 */
+  blocks: SpannedBlock[];
   /** 本文の文字数（読了時間の目安に使う） */
   chars: number;
 }
@@ -35,6 +36,12 @@ export interface BookContent {
   chars: number;
   /** 見出しIDから、その見出しがある章の番号を引く */
   chapterOfId: Map<string, number>;
+  /**
+   * 本文が、原文（改行を揃えたもの）の何行目から始まるか。
+   * かたまりの `lines` は本文の中で数えた行番号なので、原文の行に
+   * 直すときはこれを足す。原文を書き換えるアプリだけが使う。
+   */
+  bodyLine: number;
 }
 
 export interface FrontMatter {
@@ -48,17 +55,26 @@ export interface FrontMatter {
  * YAMLの全機能は解釈せず、`キー: 値` の1行だけを見る。
  * 複雑な構文を解釈しないことは、そのまま安全側にも働く。
  */
-export function splitFrontMatter(source: string): { meta: FrontMatter; body: string } {
+export function splitFrontMatter(source: string): {
+  meta: FrontMatter;
+  body: string;
+  /** 本文が、改行を揃えた原文の何行目から始まるか */
+  line: number;
+} {
   const normalized = source.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
   const m = /^---[ \t]*\n([\s\S]*?)\n---[ \t]*(?:\n|$)/.exec(normalized);
-  if (!m) return { meta: {}, body: normalized };
+  if (!m) return { meta: {}, body: normalized, line: 0 };
   const meta: FrontMatter = {};
   for (const line of m[1].split('\n')) {
     const kv = /^([A-Za-z_][\w-]*)[ \t]*:[ \t]*(.*)$/.exec(line.trim());
     if (!kv) continue;
     meta[kv[1].toLowerCase()] = kv[2].replace(/^["'](.*)["']$/, '$1').trim();
   }
-  return { meta, body: normalized.slice(m[0].length) };
+  return {
+    meta,
+    body: normalized.slice(m[0].length),
+    line: m[0].split('\n').length - 1,
+  };
 }
 
 /** 章が長くなりすぎたときに分ける目安（この文字数を超えたら段落の切れ目で割る）。 */
@@ -86,7 +102,7 @@ function chapterLevel(blocks: Block[]): number {
 function splitLongChapter(chapter: Chapter): Chapter[] {
   if (chapter.chars <= MAX_CHAPTER_CHARS) return [chapter];
   const parts: Chapter[] = [];
-  let buf: Block[] = [];
+  let buf: SpannedBlock[] = [];
   let chars = 0;
   let n = 1;
   const flush = () => {
@@ -112,7 +128,7 @@ function splitLongChapter(chapter: Chapter): Chapter[] {
 
 /** Markdown の原稿を本に組み立てる。 */
 export function buildBook(source: string, fallbackTitle: string): BookContent {
-  const { meta, body } = splitFrontMatter(source);
+  const { meta, body, line: bodyLine } = splitFrontMatter(source);
   const parsed = parseMarkdown(body);
 
   const level = chapterLevel(parsed);
@@ -186,6 +202,7 @@ export function buildBook(source: string, fallbackTitle: string): BookContent {
      */
     chars: countBlocks(parsed),
     chapterOfId: remap,
+    bodyLine,
   };
 }
 

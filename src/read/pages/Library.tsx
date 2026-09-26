@@ -414,6 +414,16 @@ export default function Library() {
           </div>
           {/* いま動いている版。古い版が残っていないかを、開かずに確かめられる。 */}
           <p className="lib-version">版 {BUILD_ID}</p>
+          {/*
+            栞は読むだけのアプリなので、読みながら直したくなったときの行き先を示す。
+            蔵書は別々に持つので、原稿はあちらで取り込み直すことになる。
+          */}
+          <p className="lib-version">
+            読みながら直したいときは{' '}
+            <a href="../mnemo/" style={{ color: 'var(--accent)' }}>
+              ムネモシュネ
+            </a>
+          </p>
         </>
       )}
 

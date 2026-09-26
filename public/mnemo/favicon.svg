@@ -1,0 +1,23 @@
+<!--
+  ムネモシュネの印。
+  縦書きの原稿（右から左へ並ぶ行）に、朱の筆を一本入れたところ。
+  行を縦にしているのは、このアプリが縦書きの原稿を読みながら直すためのもの
+  だと、小さな印のままでも分かるようにするため。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#f4f1ea"/>
+  <rect x="88" y="72" width="336" height="368" rx="16" fill="#efe9dc"/>
+  <rect x="88" y="72" width="336" height="368" rx="16" fill="none" stroke="#d6cdba" stroke-width="8"/>
+  <!-- 縦書きの行。右から左へ読む -->
+  <g fill="#3a332a">
+    <rect x="356" y="116" width="16" height="280" rx="8"/>
+    <rect x="308" y="116" width="16" height="208" rx="8"/>
+    <rect x="260" y="116" width="16" height="256" rx="8"/>
+    <rect x="212" y="116" width="16" height="152" rx="8"/>
+    <rect x="164" y="116" width="16" height="232" rx="8"/>
+    <rect x="116" y="116" width="16" height="104" rx="8"/>
+  </g>
+  <!-- 朱の筆を一本 -->
+  <path d="M212 300l40 44 92-116" fill="none" stroke="#c0453b" stroke-width="26"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
