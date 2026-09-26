@@ -256,3 +256,25 @@ export function marksByBlock(marks: AnchoredMark[], chapter: number): Map<number
   for (const list of out.values()) list.sort((a, b) => a.start - b.start || a.end - b.end);
   return out;
 }
+
+/**
+ * 地の文の「何文字目」を、元の文（Markdown）の「何文字目」に置き換える。
+ *
+ * 二度押しで直しはじめたとき、押したところへカーソルを置くために使う。
+ * 地の文は元の文から記法を抜いたものなので、**元の文の中に同じ順で並んでいる**。
+ * そこで前から突き合わせ、合った字だけ数を進める。合わない字は記法なので飛ばす。
+ *
+ * ぴったり合わないこともあるが（リンクの行き先に同じ字が入っている場合など）、
+ * その場合でも近いところには止まる。押した場所から少しずれるだけで、
+ * 指で置き直せるので実害は小さい。
+ */
+export function sourceOffsetOf(source: string, plain: string, plainOffset: number): number {
+  let at = 0;
+  const limit = Math.min(plainOffset, plain.length);
+  for (let i = 0; i < limit; i++) {
+    const ch = plain[i];
+    while (at < source.length && source[at] !== ch) at++;
+    if (at < source.length) at++;
+  }
+  return Math.min(at, source.length);
+}

@@ -13,7 +13,7 @@
  * （片方だけ直すと、選んだところと印がずれる）。
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import type { Block, Inline } from '../read/markdown';
 import type { AnchoredMark } from './draft';
 
@@ -28,6 +28,16 @@ export interface RenderOptions {
   marks?: Map<number, AnchoredMark[]>;
   /** 印を押したとき */
   onMark?: (id: string) => void;
+  /**
+   * いま直している段。その段だけは、組んだ文字の代わりに
+   * 元の文（Markdown）を入れた書き込み欄をぴったり重ねて出す。
+   */
+  edit?: {
+    block: number;
+    value: string;
+    ref: Ref<HTMLTextAreaElement>;
+    onChange: (value: string) => void;
+  };
 }
 
 /**
@@ -289,6 +299,7 @@ export function RenderBlocks({
   highlight,
   marks,
   onMark,
+  edit,
 }: {
   blocks: Block[];
 } & RenderOptions) {
@@ -299,13 +310,40 @@ export function RenderBlocks({
         const here = marks?.get(i);
         // 印の無いかたまりは、文字数を数える手間もかけない
         const cursor: Cursor | null = here ? { at: 0, marks: here, onMark } : null;
+        const editing = edit?.block === i;
         return (
           <div
             key={i}
             data-b={i}
-            className={`md-block${highlight === i ? ' md-block-hit' : ''}`}
+            className={
+              `md-block${highlight === i ? ' md-block-hit' : ''}` +
+              (editing ? ` editing${block.type === 'paragraph' ? ' editing-p' : ''}` : '')
+            }
           >
+            {/*
+              直しているあいだも、組んだ文字はそのまま置いておく（見えなくするだけ）。
+              こうすると段の大きさが変わらないので、ページの割り方が動かない。
+              書き込み欄はその上にぴったり重ねるため、字は元の位置に見える。
+            */}
             {renderBlock(block, i, opts, cursor)}
+            {editing && edit && (
+              <textarea
+                ref={edit.ref}
+                className="inline-edit"
+                value={edit.value}
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                data-gramm="false"
+                aria-label="この段を直す"
+                onChange={(e) => edit.onChange(e.target.value)}
+                // 書き込み欄の中の操作が、背後のページ送りに伝わらないようにする
+                onPointerDown={(e) => e.stopPropagation()}
+                onPointerUp={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
           </div>
         );
       })}
