@@ -47,18 +47,21 @@ import {
   type MarkKind,
 } from '../db';
 import {
+  applyPlainEdit,
   excerptOf,
   marksByBlock,
   plainOf,
   reanchorAll,
   replaceBlock,
-  sourceOffsetOf,
   sourceOfBlock,
+  sourceRangeOf,
   type AnchoredMark,
 } from '../draft';
 import {
   clearSelection,
   offsetAtPoint,
+  placeCaret,
+  plainTextIn,
   readSelection,
   type BlockSelection,
 } from '../selection';
@@ -99,16 +102,25 @@ export default function Study() {
 
   /** 直している段（かたまりの番号）と、その元の文 */
   /**
-   * いま直している段。どの章のものかも一緒に持つ。
-   * 二度押しでページを戻しながら開くことがあり、そのとき画面側の「いまの章」は
-   * まだ切り替わっていない。番号だけで持つと、別の章の段を直してしまう。
+   * いま直している段。
+   *
+   * 直すのは画面に出ている文字そのもの（`plain`）で、記法は見せない。
+   * 見た目を変えずに直せるようにするため。書き戻すときに、直す前の文字と
+   * 見くらべて「変わったところ」だけを元の文に反映する。
+   *
+   * どの章のものかも持つ。章をまたいで開くことがあり、そのとき画面側の
+   * 「いまの章」はまだ切り替わっていないため。
    */
   const [editing, setEditing] = useState<{
     chapter: number;
     block: number;
-    text: string;
+    /** 直しはじめたときの、画面に出ていた文字 */
+    plain: string;
   } | null>(null);
-  const [editText, setEditText] = useState('');
+  /** 直したかどうか。直すまでは、確かめる帯を出さない。 */
+  const [dirty, setDirty] = useState(false);
+  /** 直すのをやめたとき、画面の文字を組み直すための数え札 */
+  const [renderKey, setRenderKey] = useState(0);
   /**
    * いま選ばれているところ。ここに値があるあいだ、画面の上に小さなボタンを出す。
    *
@@ -149,19 +161,8 @@ export default function Study() {
   const keepBlock = useRef<number | null>(null);
   const keepOffset = useRef(0);
   const pendingAnchor = useRef<string | null>(null);
-  /** 本文に重ねている書き込み欄 */
-  const inlineRef = useRef<HTMLTextAreaElement>(null);
-  /** 開いた直後に、字を入れる印を置く位置 */
+  /** 直しはじめた直後に、字を入れる印（カーソル）を置く位置 */
   const caretAt = useRef(0);
-  /**
-   * 直しているあいだ、本文をどれだけ寄せて見せるか（流れの先頭からの距離）。
-   *
-   * ふだんはページの切れ目で止めているが、直すときは
-   * **その段の頭が窓の右端に来る**ように寄せる。そうしないと、
-   * 段がページの途中から始まっている場合に、書き込み欄の左半分が
-   * 窓の外へ出てしまい、打った字が見えなくなる。
-   */
-  const [editOffset, setEditOffset] = useState<number | null>(null);
 
   const book = useMemo(
     () => (record ? buildBook(record.source, record.title) : null),
@@ -209,23 +210,34 @@ export default function Study() {
   }, [id]);
 
   /*
-   * 直しはじめたら、書き込み欄に字を入れられるようにして、
-   * 押したところへ印（カーソル）を置く。
-   * 組み上がりを測ったあとに置きたいので、描画のあとで一度だけ行う。
+   * 直しはじめたら、押したところに字を入れる印（カーソル）を立てる。
+   *
+   * 直す対象は組んだ文字そのものなので、置く先もその文字の中になる。
+   * 何文字目かは分かっているので、地の文を数えながら同じ場所まで進み、
+   * その字のところに印を置く。置けなければ段の先頭に置く（指で直せる）。
    */
   useEffect(() => {
     if (!editing) return;
-    const el = inlineRef.current;
+    const el = flowRef.current?.querySelector<HTMLElement>(
+      `.md-block[data-b="${editing.block}"]`
+    );
     if (!el) return;
-    const at = Math.min(caretAt.current, el.value.length);
     el.focus({ preventScroll: true });
-    try {
-      el.setSelectionRange(at, at);
-    } catch {
-      /* 置けなくても、指で置き直せる */
+    const at = placeCaret(el, caretAt.current);
+    if (!at) {
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(true);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      } catch {
+        /* 置けなくても、指で置き直せる */
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing?.block, editing?.chapter]);
+  }, [editing?.block, editing?.chapter, renderKey]);
 
   useEffect(() => {
     if (!toast) return;
@@ -298,21 +310,6 @@ export default function Study() {
     lineHeight,
     chapterMarks,
   ]);
-
-  useLayoutEffect(() => {
-    if (!editing) {
-      setEditOffset(null);
-      return;
-    }
-    const flow = flowRef.current;
-    const el = flow?.querySelector<HTMLElement>(`.md-block[data-b="${editing.block}"]`);
-    if (!flow || !el) return;
-    const fr = flow.getBoundingClientRect();
-    const br = el.getBoundingClientRect();
-    // 流れの中での位置なので、いま画面をどれだけ寄せていても同じ値になる
-    const at = settings.vertical ? fr.right - br.right : br.left - fr.left;
-    setEditOffset(Math.max(0, Math.round(at)));
-  }, [editing, settings.vertical, layout]);
 
   const pages = layout?.pages ?? 1;
 
@@ -429,57 +426,71 @@ export default function Study() {
     (block: number, atChapter: number = chapter, caret?: number | null) => {
       if (!record || !book) return;
       const target = chapters[atChapter]?.blocks[block];
-      const text = sourceOfBlock(record.source, book, target);
-      if (text === null) {
+      if (!target || sourceRangeOf(book, target) === null) {
         setToast('この段は直せません');
         return;
       }
       clearSelection();
       setSelAction(null);
-      setEditing({ chapter: atChapter, block, text });
-      setEditText(text);
-      /*
-       * その段の**始まり**が見えるところへページを寄せる。
-       * 書き込み欄は1ページぶんの大きさで段の頭に置くので、こうしておくと
-       * 直しているあいだ、書いた字が窓の外へ出ていかない。
-       * 一度目の押しでページが送られていても、ここで戻ることになる。
-       */
-      if (atChapter === chapter) {
-        if (layout) setPage(Math.min(layout.pages - 1, layout.blockPages[block] ?? 0));
-      } else {
+      setEditing({ chapter: atChapter, block, plain: plainOf(target) });
+      setDirty(false);
+      caretAt.current = caret ?? 0;
+      // 章が違うときだけ、その段のところへ移る（同じ章なら画面は動かさない）
+      if (atChapter !== chapter) {
         setChapter(atChapter);
         keepBlock.current = block;
       }
-      // 押したところは「地の文の何文字目か」なので、元の文の位置に直してから渡す
-      caretAt.current =
-        caret === null || caret === undefined
-          ? 0
-          : sourceOffsetOf(text, plainOf(target), caret);
     },
-    [record, book, chapters, chapter, layout]
+    [record, book, chapters, chapter]
   );
 
-  /** 直すのをやめる（書いたものは捨てる）。 */
+  /**
+   * 直すのをやめる（書いたものは捨てる）。
+   *
+   * 画面の文字は人の手で書き換わっているが、こちらの控えは元のままなので、
+   * 何もしないと直した字が残って見える。数え札を進めて組み直させる。
+   */
   const cancelEditing = useCallback(() => {
     setEditing(null);
-    setEditText('');
+    setDirty(false);
+    setRenderKey((n) => n + 1);
   }, []);
 
-  /** 直した内容を原稿に書き戻す。 */
+  /**
+   * 直した内容を原稿に書き戻す。
+   *
+   * 人が直したのは画面の文字なので、まずそれを読み取り、直す前の文字と
+   * 見くらべて「変わったところ」を出す。元の文はその範囲だけを差し替えるので、
+   * 触っていないところのルビや強調はそのまま残る。
+   */
   async function applyEdit() {
     if (!record || !book || !editing) return;
     const target = chapters[editing.chapter]?.blocks[editing.block];
-    const before = editing.text;
-    const after = editText;
-    if (after === before) {
+    const el = flowRef.current?.querySelector<HTMLElement>(
+      `.md-block[data-b="${editing.block}"]`
+    );
+    if (!target || !el) {
       cancelEditing();
       return;
     }
-    const next = replaceBlock(record.source, book, target, after);
+    const beforeSource = sourceOfBlock(record.source, book, target) ?? '';
+    const afterPlain = plainTextIn(el);
+    if (afterPlain === editing.plain) {
+      cancelEditing();
+      return;
+    }
+    const nextSource = applyPlainEdit(beforeSource, editing.plain, afterPlain);
+    if (nextSource === null) {
+      cancelEditing();
+      return;
+    }
+    const next = replaceBlock(record.source, book, target, nextSource);
     if (next === null) {
       setToast('この段は直せません');
       return;
     }
+    const before = beforeSource;
+    const after = nextSource;
     const range = target?.lines
       ? { from: book.bodyLine + target.lines.from, to: book.bodyLine + target.lines.to }
       : { from: 0, to: 0 };
@@ -512,7 +523,8 @@ export default function Study() {
     rememberBlock();
     setRecord(updated);
     setEditing(null);
-    setEditText('');
+    setDirty(false);
+    setRenderKey((n) => n + 1);
     setToast('直しました');
     await saveDraft(updated).catch(() => {});
   }
@@ -725,12 +737,14 @@ export default function Study() {
     if (moved.current) return;
     /*
      * 直しているあいだは、本文を押してもページを送らない。
-     * 書き込み欄の外を押したら、そこで直しを確定して閉じる
-     * （書いたものが黙って消えるより、確定して残すほうが困らない。
-     * 気が変わったら「直した記録」から戻せる）。
+     * 直している段の中を押したときは、字を入れる印を置き直すだけにする
+     * （ここで閉じてしまうと、印を置き直せない）。
+     * 外を押したときは、そこで直しを確定して閉じる（書いたものが黙って
+     * 消えるより、残すほうが困らない。気が変わったら「直した記録」から戻せる）。
      */
     if (editing) {
-      void applyEdit();
+      const inside = (e.target as HTMLElement | null)?.closest?.('.md-block.editing');
+      if (!inside) void applyEdit();
       return;
     }
 
@@ -758,10 +772,11 @@ export default function Study() {
     ) {
       lastTap.current = null;
       /*
-       * 一度目の押しで送ったぶんは戻す必要があるが、その始末は openEditor に任せる。
-       * あちらが「その段の始まりが見えるページ」へ寄せるので、
-       * 章をまたいでいた場合も含めて、ここへ戻ってくる。
+       * 一度目の押しで送ったぶんを戻す。直しはじめても画面は動かさない決まりなので、
+       * ここで戻しておかないと、二度押ししただけでページが1つずれてしまう。
+       * 章をまたいでいた場合は openEditor が章ごと戻すので、ここでは触らない。
        */
+      if (first.chapter === chapter && first.turned !== 0) go(-first.turned);
       if (first.toggledChrome) setChrome((v) => !v);
       /*
        * 机の上のブラウザでは、二度押しでその語が選ばれる。
@@ -914,15 +929,13 @@ export default function Study() {
     (chapter + (pages > 1 ? page / (pages - 1 || 1) : 1)) / Math.max(1, chapters.length);
   // ページの位置は行の実測から決まるので、等間隔とは限らない
   const pageStart = layout?.pageStarts[page] ?? 0;
-  // 直しているあいだは、ページの切れ目ではなく「その段の頭」で止める
-  const shown = editing && editOffset !== null ? editOffset : pageStart;
-  const offset = (settings.vertical ? shown : -shown) + drag;
+  const offset = (settings.vertical ? pageStart : -pageStart) + drag;
   /*
    * 本文を見せる窓の幅。そのページの本文が終わるところで閉じるので、
    * 余白に次のページの1行目が半分だけ覗くことがない（＝文字が切れない）。
    */
   const windowWidth =
-    editing || !metrics || !layout
+    !metrics || !layout
       ? (metrics?.pageWidth ?? 0)
       : Math.max(
           metrics.pageWidth * 0.2,
@@ -1030,6 +1043,7 @@ export default function Study() {
                 }
               >
                 <RenderBlocks
+                  key={renderKey}
                   blocks={current.blocks}
                   onJump={onJump}
                   onExternal={(href) => setOutLink(href)}
@@ -1037,12 +1051,7 @@ export default function Study() {
                   marks={chapterMarks}
                   edit={
                     editing && editing.chapter === chapter
-                      ? {
-                          block: editing.block,
-                          value: editText,
-                          ref: inlineRef,
-                          onChange: setEditText,
-                        }
+                      ? { block: editing.block, onInput: () => setDirty(true) }
                       : undefined
                   }
                   onMark={(markId) => {
@@ -1111,21 +1120,16 @@ export default function Study() {
       )}
 
       {/*
-        直しているあいだ、画面の下に出す小さな帯。
-        本文の上で直せるようにしたので、確かめる場所だけをここに置く。
-        書き込み欄の上にはかぶせない（直している字が見えなくなるため）。
+        直したときだけ、画面の下に出す小さな帯。
+        直しはじめただけでは出さない（本文にカーソルが立つだけにしたいため）。
+        本文の上にはかぶせない。
       */}
-      {editing && (
+      {editing && dirty && (
         <div className="edit-bar" onPointerDown={(e) => e.stopPropagation()}>
-          <span className="edit-bar-note">元の文（記法つき）を直しています</span>
           <button className="btn btn-sm btn-ghost" onClick={cancelEditing}>
             やめる
           </button>
-          <button
-            className="btn btn-sm btn-primary"
-            disabled={editText === editing.text}
-            onClick={() => void applyEdit()}
-          >
+          <button className="btn btn-sm btn-primary" onClick={() => void applyEdit()}>
             直す
           </button>
         </div>

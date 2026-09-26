@@ -158,3 +158,79 @@ export function offsetAtPoint(block: Element, x: number, y: number): number | nu
   if (!node || !block.contains(node)) return null;
   return offsetIn(block, node, offset);
 }
+
+/**
+ * 画面に出ている、そのかたまりの地の文を読み取る。
+ *
+ * 数え方は上と同じ（ルビの読みは飛ばし、`<br>` は改行1文字）。
+ * 本文の上でそのまま直せるようにしたので、**人が直したあとの文字**を
+ * 画面から読み戻すのに使う。
+ */
+export function plainTextIn(root: Element): string {
+  let out = '';
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      out += node.textContent ?? '';
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as Element;
+    if (SKIP.has(el.tagName)) return;
+    if (el.tagName === 'BR') {
+      out += '\n';
+      return;
+    }
+    for (const child of node.childNodes) walk(child);
+  };
+  walk(root);
+  return out;
+}
+
+/**
+ * かたまりの中の「何文字目」のところに、字を入れる印（カーソル）を置く。
+ *
+ * 数え方は上と同じなので、`offsetAtPoint` で取った位置をそのまま渡せる。
+ * 置けたら true。文字が足りないなどで置けなければ false を返す。
+ */
+export function placeCaret(block: Element, offset: number): boolean {
+  let at = 0;
+  let target: Text | null = null;
+  let inside = 0;
+
+  const walk = (node: Node): boolean => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const len = node.textContent?.length ?? 0;
+      if (at + len >= offset) {
+        target = node as Text;
+        inside = offset - at;
+        return true;
+      }
+      at += len;
+      return false;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return false;
+    const el = node as Element;
+    if (SKIP.has(el.tagName)) return false;
+    if (el.tagName === 'BR') {
+      at += 1;
+      return false;
+    }
+    for (const child of Array.from(node.childNodes)) {
+      if (walk(child)) return true;
+    }
+    return false;
+  };
+
+  if (!walk(block) || target === null) return false;
+  try {
+    const range = document.createRange();
+    range.setStart(target, Math.max(0, Math.min(inside, (target as Text).length)));
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    return true;
+  } catch {
+    return false;
+  }
+}
