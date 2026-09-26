@@ -165,6 +165,8 @@ export default function Study() {
   const caretAt = useRef(0);
   /** 直している最中か（版面を測り直さないための目印） */
   const editingRef = useRef(false);
+  /** 左右に送るあいだ、カーソルの場所を預かっておく */
+  const heldCaret = useRef<Range | null>(null);
   /**
    * いちばん新しく測った版面の大きさ。
    * 直しているあいだは画面に反映しないが、測ること自体はやめない。
@@ -173,6 +175,14 @@ export default function Study() {
   const lastStage = useRef<{ w: number; h: number } | null>(null);
   /** 本文を上下に動かせるようにするための入れ物（直しているあいだだけ使う） */
   const scrollRef = useRef<HTMLDivElement>(null);
+  /**
+   * 直しているあいだ、本文を左右にどれだけ送ったか。
+   *
+   * 上下はブラウザに任せられるが、左右はページ送りと同じ向きの動きなので
+   * こちらで受け取る（`touch-action: pan-y` なので、上下はブラウザ、
+   * 左右はこちら、と分かれて届く）。読んでいるあいだは使わない。
+   */
+  const [pan, setPan] = useState(0);
 
   const book = useMemo(
     () => (record ? buildBook(record.source, record.title) : null),
@@ -293,6 +303,7 @@ export default function Study() {
      * その控えをそのまま使う。
      */
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    setPan(0);
     const size = lastStage.current;
     if (!size) return;
     setStage((prev) => (prev && prev.w === size.w && prev.h === size.h ? prev : size));
@@ -519,6 +530,7 @@ export default function Study() {
       setSelAction(null);
       setEditing({ chapter: atChapter, block, plain: plainOf(target) });
       setDirty(false);
+      setPan(0);
       caretAt.current = caret ?? 0;
       // 章が違うときだけ、その段のところへ移る（同じ章なら画面は動かさない）
       if (atChapter !== chapter) {
@@ -767,11 +779,58 @@ export default function Study() {
    */
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (editing) return; // 直しているあいだはページを送らない
     pointer.current = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
     moved.current = false;
     setAnimating(false);
+    // 送ったあとも続けて打てるよう、いまのカーソルの場所を控えておく
+    if (editing) {
+      const selection = window.getSelection();
+      heldCaret.current =
+        selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+    }
   };
+
+  /**
+   * 直しているあいだ、本文の外を押しても焦点を外さない。
+   *
+   * 焦点が外れるとキーボードが引っ込み、続きが打てなくなる。左右に送るには
+   * 本文の外をなぞることになるので、そのたびに引っ込んでは使えない。
+   * `mousedown` の既定の動き（焦点の移動）だけを止める。押したこと自体は
+   * `click` として届くので、外を押して直しを確定する動きはそのまま残る。
+   */
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (!editing) return;
+    const inside = (e.target as HTMLElement | null)?.closest?.('.md-block.editing');
+    if (!inside) e.preventDefault();
+  };
+
+  /** 送ったあと、焦点が外れていたら戻す。 */
+  const keepFocus = () => {
+    if (!editing) return;
+    const el = flowRef.current?.querySelector<HTMLElement>('.md-block.editing');
+    if (!el || document.activeElement === el) return;
+    el.focus({ preventScroll: true });
+    const range = heldCaret.current;
+    if (!range) return;
+    try {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } catch {
+      /* 戻せなくても、指で置き直せる */
+    }
+  };
+
+  /**
+   * 左右に送れる範囲。
+   * 本文の右端（始まり）から、最後の列が見えるところまで。
+   */
+  const panRange = useCallback(() => {
+    const flow = flowRef.current;
+    if (!flow || !metrics) return 0;
+    const width = settings.vertical ? flow.getBoundingClientRect().width : flow.scrollWidth;
+    return Math.max(0, Math.round(width - metrics.pageWidth));
+  }, [metrics, settings.vertical]);
 
   const onPointerMove = (e: React.PointerEvent) => {
     const start = pointer.current;
@@ -783,6 +842,11 @@ export default function Study() {
       return;
     }
     moved.current = true;
+    if (editing) {
+      // 直しているあいだは、ページを送らずに本文をそのまま左右へ動かす
+      setDrag(dx);
+      return;
+    }
     // 端では引っぱりを重くして、これ以上進めないことを手ざわりで伝える
     const atEdge =
       (dx * forwardSign > 0 && page >= pages - 1 && chapter >= chapters.length - 1) ||
@@ -798,6 +862,16 @@ export default function Study() {
       return;
     }
     const dx = e.clientX - start.x;
+    if (editing) {
+      // 動かしたぶんをそのまま覚える（ページは送らない）
+      const limit = panRange();
+      const base = layout?.pageStarts[page] ?? 0;
+      const next = Math.min(limit - base, Math.max(-base, pan + dx * forwardSign));
+      setPan(Math.round(next));
+      setDrag(0);
+      keepFocus();
+      return;
+    }
     const speed = Math.abs(dx) / Math.max(1, performance.now() - start.t);
     const threshold = Math.max(SWIPE_MIN, (stage?.w ?? 320) * SWIPE_RATIO);
     setDrag(0);
@@ -1014,13 +1088,20 @@ export default function Study() {
     (chapter + (pages > 1 ? page / (pages - 1 || 1) : 1)) / Math.max(1, chapters.length);
   // ページの位置は行の実測から決まるので、等間隔とは限らない
   const pageStart = layout?.pageStarts[page] ?? 0;
-  const offset = (settings.vertical ? pageStart : -pageStart) + drag;
+  /*
+   * 直しているあいだは、ページの切れ目ではなく「指で送ったところ」を見せる。
+   * 送った量は本文の始まりからの距離なので、向きは組み方に合わせて直す。
+   */
+  const shownStart = editing ? pageStart + pan : pageStart;
+  const offset = editing
+    ? (settings.vertical ? shownStart : -shownStart) + drag
+    : (settings.vertical ? pageStart : -pageStart) + drag;
   /*
    * 本文を見せる窓の幅。そのページの本文が終わるところで閉じるので、
    * 余白に次のページの1行目が半分だけ覗くことがない（＝文字が切れない）。
    */
   const windowWidth =
-    !metrics || !layout
+    editing || !metrics || !layout
       ? (metrics?.pageWidth ?? 0)
       : Math.max(
           metrics.pageWidth * 0.2,
@@ -1076,6 +1157,7 @@ export default function Study() {
         // 上下は操作パネルのぶんを空けておく。パネルが隠れても本文が動かない。
         style={{ padding: `${pad + 46}px ${pad}px ${pad + 42}px` }}
         onPointerDown={onPointerDown}
+        onMouseDown={onMouseDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishDrag}
         onPointerCancel={() => {
