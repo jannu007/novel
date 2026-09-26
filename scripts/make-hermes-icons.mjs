@@ -1,11 +1,11 @@
 /**
- * 「ムネモシュネ」のアプリアイコン（PNG）を作る。
+ * 「ヘルメス」のアプリアイコン（PNG）を作る。
  *
  * 画像ライブラリを足さずに済むよう、favicon.svg と同じ図形を
  * ここで直接ラスタライズして PNG を書き出している。
  * 図形は「縦書きの原稿」と、そこに入れた「朱の筆」。
  *
- *   node scripts/make-mnemo-icons.mjs
+ *   node scripts/make-hermes-icons.mjs
  */
 
 import { deflateSync } from 'node:zlib';
@@ -13,7 +13,7 @@ import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'mnemo');
+const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'hermes');
 
 const PAPER = [0xf4, 0xf1, 0xea];
 const SHEET = [0xef, 0xe9, 0xdc];

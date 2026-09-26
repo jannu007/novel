@@ -19,6 +19,7 @@ import {
 } from '../components/Icons';
 import { useInstallPrompt } from '../../lib/useInstallPrompt';
 import {
+  adoptOldDrafts,
   clearDrafts,
   deleteDraft,
   keepStorage,
@@ -31,7 +32,7 @@ import { downloadSource, makeDraft, readDraftFiles, takeSharedFiles } from '../i
 import { BUILD_ID, serviceWorkerState } from '../sw-client';
 import { SAMPLE_DRAFT, SAMPLE_FILE_NAME } from '../sample';
 
-const SEEDED_KEY = 'mnemosyne:seeded';
+const SEEDED_KEY = 'hermes:seeded';
 
 /** 題名の種から、背の色みを決める。同じ題名ならいつも同じ色になる。 */
 function hueOf(seed: number): number {
@@ -64,6 +65,12 @@ export default function Desk() {
     keepStorage();
 
     (async () => {
+      /*
+       * 前の名前（ムネモシュネ）で保存していた原稿があれば、先に引き継ぐ。
+       * 試し書き用の原稿を入れるかどうかの判断より前に済ませないと、
+       * 引き継いだ原稿があるのに「はじめて開いた」と見なしてしまう。
+       */
+      await adoptOldDrafts();
       const existing = await listDrafts();
       // はじめて開いたときだけ、試し書き用の原稿を入れておく
       if (existing.length === 0 && localStorage.getItem(SEEDED_KEY) !== '1') {
@@ -154,8 +161,8 @@ export default function Desk() {
     >
       <header className="desk-head">
         <div className="brand">
-          <b>ムネモシュネ</b>
-          <i>Mnemosyne</i>
+          <b>ヘルメス</b>
+          <i>Hermes</i>
         </div>
         <p className="tagline">
           本の形で読みながら、その場で直し、気づいたところに印を残す。
@@ -315,14 +322,15 @@ export default function Desk() {
       {/* ---- このアプリについて ---- */}
       <Sheet open={sheet === 'about'} title="このアプリについて" onClose={() => setSheet(null)}>
         <p className="sheet-note">
-          ムネモシュネは、書き上がった原稿を<strong>本の形で読みながら推敲する</strong>ための
+          ヘルメスは、書き上がった原稿を<strong>本の形で読みながら推敲する</strong>ための
           アプリです。読んでいる流れのまま、気になった段をその場で直し、
           あとで考えたいところに印を残せます。
         </p>
         <p className="sheet-note">
-          名前は、ギリシャ神話の記憶の女神ムネモシュネから。
-          読みながら「ここが気になった」と思ったことは、たいてい次の行で忘れます。
-          それを覚えておくのがこのアプリの役目です。
+          名前は、ギリシャ神話で<strong>言葉を運ぶ神</strong>ヘルメスから。
+          書き手と読み手のあいだを行き来して、伝わらなかったところを持ち帰る——
+          原稿を読み返す仕事は、だいたいそういうものだからです。
+          文章の読み解きを指す「解釈学（hermeneutics）」も、この神の名に由来します。
         </p>
         <div className="section-title">原稿の行き先</div>
         <p className="sheet-note">

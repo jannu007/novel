@@ -1,5 +1,5 @@
 /*
- * 「ムネモシュネ」のオフライン対応と、他のアプリからの受け取り口。
+ * 「ヘルメス」のオフライン対応と、他のアプリからの受け取り口。
  *
  * ・一度開いておけば、電波がなくても原稿の一覧と推敲の画面をそのまま開ける
  * ・保存するのはアプリ自身のファイルだけで、原稿の中身はここを通らない
@@ -8,9 +8,9 @@
  *   （端末のファイル選択に「ファイル」が出てこないときの入り口になる）
  */
 
-const CACHE_NAME = 'mnemosyne-v1';
+const CACHE_NAME = 'hermes-v1';
 /** 共有で受け取ったファイルを、アプリが拾うまで一時的に置いておく場所。 */
-const SHARE_CACHE = 'mnemosyne-share';
+const SHARE_CACHE = 'hermes-share';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

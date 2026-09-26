@@ -1,0 +1,59 @@
+<!doctype html>
+<!--
+  このアプリは、はじめ「ムネモシュネ」という名前で /mnemo/ に置いていた。
+  「ヘルメス」に改めて /hermes/ へ移したので、ここは行き先を知らせるだけの紙にしてある。
+
+  すでにこのURLをホーム画面に入れてしまった人や、履歴から開いた人が
+  「消えた」と思わないようにするための置き手紙。原稿は消えていない
+  （保存はドメインごとなので、移った先でそのまま引き継がれる）。
+-->
+<html lang="ja" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'; connect-src 'none'; frame-src 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="refresh" content="0; url=../hermes/" />
+    <title>ヘルメスへ移りました</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: #f4f1ea;
+        color: #3a332a;
+        font-family: 'Hiragino Sans', 'Yu Gothic', YuGothic, 'Noto Sans JP', system-ui, sans-serif;
+        line-height: 1.9;
+        text-align: center;
+      }
+      a {
+        color: #8a5a2b;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0f0f11;
+          color: #ded9d0;
+        }
+        a {
+          color: #c99a63;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>
+        このアプリは<strong>ヘルメス</strong>という名前になり、置き場所も移りました。<br />
+        自動で移ります。移らないときは下を押してください。
+      </p>
+      <p><a href="../hermes/">ヘルメスを開く</a></p>
+      <p><small>取り込んだ原稿はそのまま引き継がれます。</small></p>
+    </main>
+  </body>
+</html>

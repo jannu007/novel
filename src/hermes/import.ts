@@ -96,7 +96,7 @@ export async function readDraftFiles(
 export async function takeSharedFiles(): Promise<File[]> {
   if (!('caches' in window)) return [];
   try {
-    const cache = await caches.open('mnemosyne-share');
+    const cache = await caches.open('hermes-share');
     const keys = await cache.keys();
     const files: File[] = [];
     for (const key of keys) {

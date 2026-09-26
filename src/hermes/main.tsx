@@ -63,7 +63,7 @@ const root = document.getElementById('root');
 if (root && framed()) {
   root.className = 'framed-stop';
   root.textContent =
-    'ムネモシュネは、ほかのページに埋め込まれた状態では開けません。ムネモシュネのアプリとして開いてください。';
+    'ヘルメスは、ほかのページに埋め込まれた状態では開けません。ヘルメスのアプリとして開いてください。';
 } else if (root) {
   createRoot(root).render(
     <StrictMode>

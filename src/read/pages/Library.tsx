@@ -420,8 +420,8 @@ export default function Library() {
           */}
           <p className="lib-version">
             読みながら直したいときは{' '}
-            <a href="../mnemo/" style={{ color: 'var(--accent)' }}>
-              ムネモシュネ
+            <a href="../hermes/" style={{ color: 'var(--accent)' }}>
+              ヘルメス
             </a>
           </p>
         </>
