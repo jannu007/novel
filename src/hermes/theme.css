@@ -1392,15 +1392,22 @@ select {
 /*
  * 選んだところに出す小さなボタン。
  *
- * 選んだ文字のそばに置くと、縦書きでは行が画面の左端に寄るほど枠が
- * はみ出して切れてしまい、端の行ほど押せなくなる。指で隠れることもある。
- * そこで**いつも画面の上の中央**に出す。場所が毎回同じなら、
- * どこを選んでも同じ動きで押せる。
+ * 置き場所は**いつも画面の下の中央**。理由が2つある。
+ *
+ * 1. 端末のコピーのメニュー（コピー・すべて選択・共有…）と重ならないため。
+ *    あれはブラウザではなく端末が出すもので、こちらからは動かせない。
+ *    選んだところのすぐ上に出る決まりなので、上に置くと必ずぶつかる。
+ *    縦書きでは選んだ範囲が縦に長くなり、その上端は画面の上のほうに来やすいので、
+ *    いちばん遠いのが下端になる。
+ * 2. 片手で持ったときに親指が届くのも下だから。
+ *
+ * 選んだ文字のそばには置かない。縦書きで行が左端に寄るほど枠がはみ出して
+ * 切れてしまい、端の行ほど押せなくなるため。
  */
 .sel-bar {
   position: absolute;
   z-index: 30;
-  top: calc(max(8px, env(safe-area-inset-top)) + 54px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1410,7 +1417,7 @@ select {
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: var(--shadow);
-  animation: rise 0.16s var(--ease);
+  animation: sel-rise 0.16s var(--ease);
   white-space: nowrap;
   /* 狭い画面でも切れないよう、はみ出す前に縮める */
   max-width: calc(100% - 20px);
@@ -1438,4 +1445,21 @@ select {
   width: 16px;
   height: 16px;
   flex: none;
+}
+
+/*
+ * 選んだときのボタンが出てくる動き。
+ * 共通の `rise` を使うと、そちらが transform を丸ごと書き換えてしまい、
+ * 真ん中に寄せるための translateX(-50%) が消えて横に飛ぶ。
+ * 寄せたまま動かすために、こちらで持っている。
+ */
+@keyframes sel-rise {
+  from {
+    transform: translate(-50%, 14px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
 }
