@@ -47,6 +47,26 @@ export type Block =
   | { type: 'table'; head: Inline[][]; align: Align[]; rows: Inline[][][] }
   | { type: 'hr' };
 
+/**
+ * そのかたまりが、原文の何行目から何行目まででできているか（`to` は含まない）。
+ *
+ * 読むだけなら要らないが、**原文を書き換える**アプリ（ムネモシュネ）が
+ * 「画面のこの段は原文のここ」と辿れるようにするために付けている。
+ * 付くのは最上位のかたまりだけで、引用や箇条書きの中のものには付かない。
+ * 行番号は、フロントマターを外した本文の中で数える。
+ */
+export interface SourceSpan {
+  from: number;
+  to: number;
+}
+
+/**
+ * 原文の行範囲つきのかたまり。
+ * 挿絵のかたまりがすでに `src`（画像の在りか）を持っているので、
+ * 行範囲のほうは `lines` と呼び分けている。
+ */
+export type SpannedBlock = Block & { lines?: SourceSpan };
+
 interface LinkDef {
   href: string;
   title?: string;
@@ -471,11 +491,40 @@ function collectDefs(lines: string[], defs: Map<string, LinkDef>): void {
   }
 }
 
-function parseBlocks(lines: string[], ctx: Ctx): Block[] {
+/**
+ * 行の並びをかたまりの並びにする。
+ *
+ * `spans` を渡すと、積んだかたまりに原文の行範囲を書き込む。
+ * 中の分岐はどれも「1つ積んで `continue`」なので、範囲を閉じるのは
+ * *次の回の先頭*（とループを抜けたあと）でよい。こうすれば
+ * 分岐を1つも触らずに済み、記法を足したときに付け忘れも起きない。
+ */
+function parseBlocks(lines: string[], ctx: Ctx, spans?: boolean): Block[] {
   const blocks: Block[] = [];
   let i = 0;
+  /** いま処理しているかたまりが始まった行 */
+  let from = 0;
+  /** ここから後ろが、まだ行範囲の決まっていないかたまり */
+  let pending = 0;
+
+  /** 直前の回で積んだぶんの行範囲を確定する。 */
+  const close = (to: number) => {
+    /*
+     * 末尾の空行は範囲から外す。箇条書きなどは区切りの空行まで読み進めるので、
+     * そのままだと段のうしろに空行がぶら下がる。原文を書き換えるとき、
+     * 段と段のあいだの空行は「段の中身」ではなく「区切り」として
+     * 外に置いておきたい。
+     */
+    let end = to;
+    while (end > from && isBlank(lines[end - 1])) end--;
+    for (; pending < blocks.length; pending++) {
+      (blocks[pending] as SpannedBlock).lines = { from, to: end };
+    }
+  };
 
   while (i < lines.length) {
+    if (spans) close(i);
+    from = i;
     const line = lines[i];
 
     if (isBlank(line)) {
@@ -609,6 +658,7 @@ function parseBlocks(lines: string[], ctx: Ctx): Block[] {
     }
   }
 
+  if (spans) close(i);
   return blocks;
 }
 
@@ -674,10 +724,17 @@ function parseList(
   return { block: { type: 'list', ordered, start, tight, items }, next: i };
 }
 
-/** Markdown 全体を解析してブロックの並びにする。 */
-export function parseMarkdown(source: string): Block[] {
+/**
+ * Markdown 全体を解析してブロックの並びにする。
+ *
+ * 最上位のかたまりには、原文の何行目からできたか（`src`）も付けて返す。
+ * 読むだけのアプリは見なければよく、原文を書き換えるアプリだけが使う。
+ * 改行コードの統一もタブの展開も**行数を変えない**ので、
+ * この行番号は渡した原文の行番号としてそのまま通用する。
+ */
+export function parseMarkdown(source: string): SpannedBlock[] {
   const lines = source.replace(/\r\n?/g, '\n').replace(/\t/g, '    ').split('\n');
   const defs = new Map<string, LinkDef>();
   collectDefs(lines, defs);
-  return parseBlocks(lines, { defs, ids: new Set() });
+  return parseBlocks(lines, { defs, ids: new Set() }, true);
 }
