@@ -163,6 +163,20 @@ export default function Study() {
   const pendingAnchor = useRef<string | null>(null);
   /** 直しはじめた直後に、字を入れる印（カーソル）を置く位置 */
   const caretAt = useRef(0);
+  /** 直している最中か（版面を測り直さないための目印） */
+  const editingRef = useRef(false);
+  /**
+   * いちばん新しく測った版面の大きさ。
+   * 直しているあいだは画面に反映しないが、測ること自体はやめない。
+   * 直し終えたときに、そのときの本当の大きさへ戻せるようにするため。
+   */
+  const lastStage = useRef<{ w: number; h: number } | null>(null);
+  /**
+   * 直しているあいだ、本文を縦にどれだけずらして見せるか。
+   * キーボードで下half が隠れるので、カーソルが見えるところまで持ち上げる。
+   * ずらすだけなので、組み方も改行の位置も変わらない。
+   */
+  const [caretShift, setCaretShift] = useState(0);
 
   const book = useMemo(
     () => (record ? buildBook(record.source, record.title) : null),
@@ -236,8 +250,72 @@ export default function Study() {
         /* 置けなくても、指で置き直せる */
       }
     }
+    // キーボードが出そろうのを待ってから、隠れていないか見る
+    const timer = window.setTimeout(followCaret, 260);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing?.block, editing?.chapter, renderKey]);
+
+  /**
+   * カーソルがキーボードに隠れていたら、隠れないところまで本文を持ち上げる。
+   * 組み直すのではなく、ずらすだけ。だから改行の位置は動かない。
+   */
+  const followCaret = useCallback(() => {
+    if (!editingRef.current) return;
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    let rect = selection.getRangeAt(0).getBoundingClientRect();
+    if (rect.height === 0 && rect.width === 0) {
+      const block = flowRef.current?.querySelector('.md-block.editing');
+      if (!block) return;
+      rect = block.getBoundingClientRect();
+    }
+    const view = stageEl.getBoundingClientRect();
+    const margin = 24;
+    setCaretShift((prev) => {
+      let next = prev;
+      if (rect.bottom > view.bottom - margin) next = prev - (rect.bottom - (view.bottom - margin));
+      else if (rect.top < view.top + margin) next = prev + (view.top + margin - rect.top);
+      // 本文より上へは持ち上げない
+      return Math.min(0, Math.round(next));
+    });
+  }, []);
+
+  useEffect(() => {
+    editingRef.current = Boolean(editing);
+    if (editing) return;
+    /*
+     * 直し終えたら、ずらしを戻して、いちばん新しく測った大きさに合わせ直す。
+     *
+     * ここで自分で測り直してはいけない。`getBoundingClientRect` は余白まで
+     * 含んだ外側の大きさを返すので、余白のぶんだけ版面が広がってしまい、
+     * 本文が組み直されてページ数まで変わる（実際そうなった）。
+     * 見張り役（ResizeObserver）が測っているのは中身の大きさなので、
+     * その控えをそのまま使う。
+     */
+    setCaretShift(0);
+    const size = lastStage.current;
+    if (!size) return;
+    setStage((prev) => (prev && prev.w === size.w && prev.h === size.h ? prev : size));
+  }, [editing]);
+
+  /*
+   * キーボードが出入りすると、見えている高さが変わる。
+   * そのたびにカーソルを追いかけ直す。
+   */
+  useEffect(() => {
+    if (!editing) return;
+    const vv = window.visualViewport;
+    const onResize = () => window.setTimeout(followCaret, 60);
+    vv?.addEventListener('resize', onResize);
+    window.addEventListener('resize', onResize);
+    return () => {
+      vv?.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [editing, followCaret]);
 
   useEffect(() => {
     if (!toast) return;
@@ -260,12 +338,22 @@ export default function Study() {
     const el = stageRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
+      /*
+       * 直しているあいだは測り直さない。
+       *
+       * 字を打ちはじめるとキーボードが出て、画面の枠がそのぶんだけ縮む。
+       * そのまま測り直すと版面の高さが変わり、**本文が組み直されて改行の位置が
+       * すっかり変わってしまう**。直している最中に紙面が別物になるので、
+       * どこを直していたのか見失う。
+       *
+       * キーボードで隠れるぶんは、本文を上へずらして見せる（`caretShift`）。
+       * 組み方はそのままなので、改行は原稿に忠実なまま。
+       */
       const r = entries[0].contentRect;
-      setStage((prev) => {
-        const w = Math.round(r.width);
-        const h = Math.round(r.height);
-        return prev && prev.w === w && prev.h === h ? prev : { w, h };
-      });
+      const size = { w: Math.round(r.width), h: Math.round(r.height) };
+      lastStage.current = size;
+      if (editingRef.current) return;
+      setStage((prev) => (prev && prev.w === size.w && prev.h === size.h ? prev : size));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -1012,7 +1100,7 @@ export default function Study() {
           {metrics && (
             <div
               className={`flow-clip${animating && settings.animate && drag === 0 ? ' anim' : ''}`}
-              style={{ transform: `translateX(${offset}px)` }}
+              style={{ transform: `translate(${offset}px, ${caretShift}px)` }}
               onTransitionEnd={() => setAnimating(false)}
             >
               <div
@@ -1051,7 +1139,13 @@ export default function Study() {
                   marks={chapterMarks}
                   edit={
                     editing && editing.chapter === chapter
-                      ? { block: editing.block, onInput: () => setDirty(true) }
+                      ? {
+                          block: editing.block,
+                          onInput: () => {
+                            setDirty(true);
+                            followCaret();
+                          },
+                        }
                       : undefined
                   }
                   onMark={(markId) => {
