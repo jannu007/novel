@@ -707,6 +707,30 @@ select {
   margin: 0 auto;
   overflow: hidden;
 }
+
+/*
+ * 直しているあいだは、本文を上下に動かせるようにする。
+ *
+ * キーボードが出ると画面の下半分が隠れるが、組み方は止めてあるので
+ * 本文は隠れた先まで続いている。指で送れないと、その先が読めないまま
+ * 直すことになってしまう。横は今までどおり切り落とす（ページの外は見せない）。
+ */
+.stage-inner.scrollable {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.stage-inner.scrollable::-webkit-scrollbar {
+  display: none;
+}
+
+/* 送るぶんの高さを作るためだけのもの。何も描かない。 */
+.edit-scroll {
+  width: 1px;
+  pointer-events: none;
+  visibility: hidden;
+}
 .flow-clip {
   position: absolute;
   inset: 0;

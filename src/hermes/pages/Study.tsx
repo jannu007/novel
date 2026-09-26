@@ -171,12 +171,8 @@ export default function Study() {
    * 直し終えたときに、そのときの本当の大きさへ戻せるようにするため。
    */
   const lastStage = useRef<{ w: number; h: number } | null>(null);
-  /**
-   * 直しているあいだ、本文を縦にどれだけずらして見せるか。
-   * キーボードで下half が隠れるので、カーソルが見えるところまで持ち上げる。
-   * ずらすだけなので、組み方も改行の位置も変わらない。
-   */
-  const [caretShift, setCaretShift] = useState(0);
+  /** 本文を上下に動かせるようにするための入れ物（直しているあいだだけ使う） */
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const book = useMemo(
     () => (record ? buildBook(record.source, record.title) : null),
@@ -257,13 +253,16 @@ export default function Study() {
   }, [editing?.block, editing?.chapter, renderKey]);
 
   /**
-   * カーソルがキーボードに隠れていたら、隠れないところまで本文を持ち上げる。
-   * 組み直すのではなく、ずらすだけ。だから改行の位置は動かない。
+   * カーソルがキーボードに隠れていたら、見えるところまで本文を送る。
+   *
+   * 組み直すのではなく、本文の入れ物を上下に送るだけ。だから改行は動かない。
+   * 送った先は指でも動かせる（直しているあいだ、この入れ物は上下に
+   * スクロールできるようにしてある）。
    */
   const followCaret = useCallback(() => {
     if (!editingRef.current) return;
-    const stageEl = stageRef.current;
-    if (!stageEl) return;
+    const box = scrollRef.current;
+    if (!box) return;
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     let rect = selection.getRangeAt(0).getBoundingClientRect();
@@ -272,15 +271,13 @@ export default function Study() {
       if (!block) return;
       rect = block.getBoundingClientRect();
     }
-    const view = stageEl.getBoundingClientRect();
-    const margin = 24;
-    setCaretShift((prev) => {
-      let next = prev;
-      if (rect.bottom > view.bottom - margin) next = prev - (rect.bottom - (view.bottom - margin));
-      else if (rect.top < view.top + margin) next = prev + (view.top + margin - rect.top);
-      // 本文より上へは持ち上げない
-      return Math.min(0, Math.round(next));
-    });
+    const view = box.getBoundingClientRect();
+    const margin = 28;
+    if (rect.bottom > view.bottom - margin) {
+      box.scrollTop += rect.bottom - (view.bottom - margin);
+    } else if (rect.top < view.top + margin) {
+      box.scrollTop -= view.top + margin - rect.top;
+    }
   }, []);
 
   useEffect(() => {
@@ -295,7 +292,7 @@ export default function Study() {
      * 見張り役（ResizeObserver）が測っているのは中身の大きさなので、
      * その控えをそのまま使う。
      */
-    setCaretShift(0);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
     const size = lastStage.current;
     if (!size) return;
     setStage((prev) => (prev && prev.w === size.w && prev.h === size.h ? prev : size));
@@ -1088,7 +1085,8 @@ export default function Study() {
         onClick={onTap}
       >
         <div
-          className="stage-inner"
+          ref={scrollRef}
+          className={`stage-inner${editing ? ' scrollable' : ''}`}
           style={
             metrics
               ? settings.vertical
@@ -1100,7 +1098,7 @@ export default function Study() {
           {metrics && (
             <div
               className={`flow-clip${animating && settings.animate && drag === 0 ? ' anim' : ''}`}
-              style={{ transform: `translate(${offset}px, ${caretShift}px)` }}
+              style={{ transform: `translateX(${offset}px)` }}
               onTransitionEnd={() => setAnimating(false)}
             >
               <div
@@ -1157,6 +1155,19 @@ export default function Study() {
                 <div className="md-end" aria-hidden />
               </div>
             </div>
+          )}
+          {/*
+            直しているあいだだけ置く、高さのあるつっかえ棒。
+            本文は浮かせて（position: absolute）置いてあるので、そのままでは
+            入れ物に「送るぶんの高さ」が無く、指で動かせない。
+            版面と同じ高さのものを1つ入れて、上下に送れるようにする。
+          */}
+          {editing && metrics && (
+            <div
+              className="edit-scroll"
+              style={{ height: metrics.pageHeight }}
+              aria-hidden
+            />
           )}
         </div>
       </div>
