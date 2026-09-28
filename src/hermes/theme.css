@@ -667,9 +667,22 @@ select {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-/* 右下の残りページ（この章と本全体を1行で） */
+/* 右下は「本の総字数・読んだぶん」。数字なので幅を食わないよう1行に収める。 */
 .foot-rest {
   white-space: nowrap;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.foot-sep {
+  opacity: 0.45;
+}
+.foot-pct {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.foot-chars {
+  font-variant-numeric: tabular-nums;
 }
 @media (max-width: 480px) {
   .foot-hint {
