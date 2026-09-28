@@ -409,6 +409,38 @@ export default function Study() {
 
   const pages = layout?.pages ?? 1;
 
+  /* ---------------- どこまで読んだか ---------------- */
+
+  /**
+   * 章の頭までに何字あるかを、あらかじめ足しておく。
+   * 章の数で割るやり方だと、短い章も長い章も同じ幅になってしまうので、
+   * 字数で測る。`book.chars` は見出しを数えず、章ごとの `chars` も同じ数え方
+   * （`blockChars` の既定）なので、ここの合計は本の総字数とぴったり合う。
+   */
+  const charsBefore = useMemo(() => {
+    const acc: number[] = [];
+    let sum = 0;
+    for (const ch of chapters) {
+      acc.push(sum);
+      sum += ch.chars;
+    }
+    return acc;
+  }, [chapters]);
+
+  const totalChars = book?.chars ?? 0;
+
+  /** いまのページが、その章のどのあたりか（0〜1）。 */
+  const pagePart = pages > 1 ? page / (pages - 1) : 1;
+
+  /** 本全体のうち、読み終えたぶん（0〜1）。帯・卓の％・下の帯で同じ数を使う。 */
+  const readRatio = useMemo(() => {
+    const raw =
+      totalChars > 0
+        ? ((charsBefore[chapter] ?? 0) + (current?.chars ?? 0) * pagePart) / totalChars
+        : (chapter + pagePart) / Math.max(1, chapters.length);
+    return Math.min(1, Math.max(0, raw));
+  }, [totalChars, charsBefore, chapter, current, pagePart, chapters.length]);
+
   /** 組み直しの前に、いま読んでいる場所を覚えておく。 */
   const rememberBlock = useCallback(() => {
     if (!layout) return;
@@ -486,14 +518,11 @@ export default function Study() {
     if (!record || !layout) return;
     const block = blockAtPage(layout, page);
     const offset = page - (layout.blockPages[block] ?? 0);
-    const ratio =
-      (chapter + (layout.pages > 1 ? page / (layout.pages - 1) : 1)) /
-      Math.max(1, chapters.length);
     const timer = setTimeout(() => {
       saveDraft({
         ...record,
         openedAt: Date.now(),
-        position: { chapter, block, offset, ratio: Math.min(1, ratio), at: Date.now() },
+        position: { chapter, block, offset, ratio: readRatio, at: Date.now() },
       }).catch(() => {
         /* 保存できなくても推敲は続けられる */
       });
@@ -501,7 +530,7 @@ export default function Study() {
     return () => clearTimeout(timer);
     // record自体を依存に入れると保存のたびに再実行されるので、位置だけを見る
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapter, page, layout]);
+  }, [chapter, page, layout, readRatio]);
 
   /* ---------------- 直す ---------------- */
 
@@ -1084,8 +1113,8 @@ export default function Study() {
     );
   }
 
-  const progress =
-    (chapter + (pages > 1 ? page / (pages - 1 || 1) : 1)) / Math.max(1, chapters.length);
+  const progress = readRatio;
+  const percent = Math.round(readRatio * 100);
   // ページの位置は行の実測から決まるので、等間隔とは限らない
   const pageStart = layout?.pageStarts[page] ?? 0;
   /*
@@ -1265,13 +1294,19 @@ export default function Study() {
           <span>
             {page + 1} / {pages}ページ
           </span>
-          <span className="foot-hint">なぞると印、二度押しで直す</span>
-          <span className="foot-rest">
+          <span className="foot-hint">
             {pages - page - 1 > 0
               ? `この章 あと${pages - page - 1}ページ`
               : chapter < chapters.length - 1
                 ? 'この章の終わり'
                 : '最後の章'}
+          </span>
+          <span className="foot-rest" translate="no">
+            <span className="foot-chars">{totalChars.toLocaleString('ja-JP')}字</span>
+            <span className="foot-sep" aria-hidden>
+              ・
+            </span>
+            <span className="foot-pct">{percent}%</span>
           </span>
         </div>
       </footer>
